@@ -13,6 +13,7 @@ from tankbattle.utils.constants import (
     AMMO_WEIGHT_GRAVITY_SCALE,
     BARREL_COLOR,
     BARREL_LENGTH,
+    BARREL_THICKNESS,
     BLACK,
     LAUNCH_POWER_SCALE,
     TANK_FUEL_COST_PER_FRAME,
@@ -119,4 +120,4 @@ class Tank:
         body_rect = self.get_rect()
         pygame.draw.rect(surface, self.color, body_rect, border_radius=3)
         pygame.draw.rect(surface, BLACK, body_rect, width=1, border_radius=3)
-        pygame.draw.line(surface, BARREL_COLOR, body_rect.center, self.barrel_tip(), 4)
+        pygame.draw.line(surface, BARREL_COLOR, body_rect.center, self.barrel_tip(), BARREL_THICKNESS)

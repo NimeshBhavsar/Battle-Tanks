@@ -19,7 +19,7 @@ from tankbattle.models.terrain import Terrain
 from tankbattle.utils.constants import EXPLOSION_FRAMES, FPS, PLAYER1_COLOR, PLAYER2_COLOR, SCREEN_WIDTH
 from tankbattle.utils.helpers import distance
 
-_EMPTY_INPUT = {"move": 0, "rotate": 0, "power": 0, "fire": False, "ammo": None}
+_EMPTY_INPUT = {"move": 0, "rotate": 0, "power": 0, "fire": False, "ammo": None, "restart": False}
 
 
 def build_players(terrain: Terrain) -> list[Player]:
@@ -35,7 +35,7 @@ class GameServer:
         self.host = host
         self.port = port
 
-        self.terrain = Terrain(seed=42)
+        self.terrain = Terrain()  # random seed: a new match gets new terrain
         self.players = build_players(self.terrain)
         self.turn_manager = TurnManager(self.players)
 
@@ -98,7 +98,16 @@ class GameServer:
                 cached["fire"] = False
                 cached["ammo"] = None
 
+            restart_requested = False
+            if self.game_over_text is not None:
+                restart_requested = any(inp.get("restart") for inp in self.pending_inputs.values())
+                if restart_requested:
+                    for inp in self.pending_inputs.values():
+                        inp["restart"] = False
+
         if self.game_over_text is not None:
+            if restart_requested:
+                self._reset_match()
             return
 
         current_tank = current_player.tank
@@ -170,6 +179,18 @@ class GameServer:
         else:
             self.turn_manager.end_turn()
             self.acted_this_turn = False
+
+    def _reset_match(self) -> None:
+        self.terrain = Terrain()
+        self.players = build_players(self.terrain)
+        self.turn_manager = TurnManager(self.players)
+        self.acted_this_turn = False
+        self.was_moving = False
+        self.active_projectile = None
+        self.explosion_position = None
+        self.explosion_frames_left = 0
+        self.game_over_text = None
+        print("Match restarted")
 
     def _snapshot(self) -> dict:
         return {

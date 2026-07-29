@@ -18,7 +18,16 @@ from tankbattle.models.projectile import Projectile
 from tankbattle.models.tank import Tank
 from tankbattle.models.terrain import Terrain
 from tankbattle.ui import game_screen, hud
-from tankbattle.utils.constants import FPS, SCREEN_HEIGHT, SCREEN_WIDTH, SKY_COLOR, WINDOW_TITLE
+from tankbattle.ui import sound as sfx
+from tankbattle.utils.constants import (
+    EXPLOSION_FRAMES,
+    FPS,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH,
+    SKY_COLOR,
+    TRAJECTORY_VISIBLE_FRACTION,
+    WINDOW_TITLE,
+)
 
 
 class GameClient:
@@ -35,6 +44,11 @@ class GameClient:
         self.tanks_by_id: dict[int, Tank] = {}
         self.players: list[Player] = []
         self.turn_manager: TurnManager | None = None
+
+        self.sounds: dict = {}
+        self._had_projectile = False
+        self._explosion_last_pos: tuple[float, float] | None = None
+        self._explosion_elapsed = 0
 
     def connect(self) -> None:
         self.sock = socket.create_connection((self.host, self.port))
@@ -84,11 +98,13 @@ class GameClient:
         clock = pygame.time.Clock()
         font = pygame.font.SysFont(None, 28)
         big_font = pygame.font.SysFont(None, 64)
+        self.sounds = sfx.load_sounds()
 
         running = True
         while running:
             fire = False
             ammo = None
+            restart = False
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -101,6 +117,8 @@ class GameClient:
                         ammo = "Medium"
                     elif event.key == pygame.K_3:
                         ammo = "Heavy"
+                    elif event.key == pygame.K_r:
+                        restart = True
 
             keys = pygame.key.get_pressed()
             move = -1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0
@@ -108,7 +126,10 @@ class GameClient:
             power_dir = 1 if keys[pygame.K_e] else -1 if keys[pygame.K_q] else 0
 
             try:
-                network.send_message(self.sock, {"move": move, "rotate": rotate, "power": power_dir, "fire": fire, "ammo": ammo})
+                network.send_message(
+                    self.sock,
+                    {"move": move, "rotate": rotate, "power": power_dir, "fire": fire, "ammo": ammo, "restart": restart},
+                )
             except OSError:
                 running = False
                 break
@@ -122,20 +143,38 @@ class GameClient:
             else:
                 self._apply_state(state)
 
+                has_projectile_now = bool(state.get("projectile"))
+                if has_projectile_now and not self._had_projectile:
+                    sfx.play(self.sounds, "fire")
+                self._had_projectile = has_projectile_now
+
                 projectile = None
-                if state.get("projectile"):
+                if has_projectile_now:
                     projectile = Projectile(tuple(state["projectile"]["position"]), (0.0, 0.0), 0, 0, 0)
+
                 explosion = tuple(state["explosion"]) if state.get("explosion") else None
+                if explosion is None:
+                    self._explosion_last_pos = None
+                    self._explosion_elapsed = 0
+                elif explosion != self._explosion_last_pos:
+                    self._explosion_last_pos = explosion
+                    self._explosion_elapsed = 0
+                    sfx.play(self.sounds, "explosion")
+                else:
+                    self._explosion_elapsed += 1
+                explosion_progress = self._explosion_elapsed / EXPLOSION_FRAMES
+
                 game_over_text = state.get("game_over_text")
 
                 trajectory = None
                 is_my_turn = self.turn_manager.current_player.player_id == self.player_id
                 if game_over_text is None and projectile is None and is_my_turn:
-                    trajectory = self.tanks_by_id[self.player_id].preview_trajectory(self.terrain)
+                    full_trajectory = self.tanks_by_id[self.player_id].preview_trajectory(self.terrain)
+                    trajectory = full_trajectory[: max(1, int(len(full_trajectory) * TRAJECTORY_VISIBLE_FRACTION))]
 
                 game_screen.render(
                     screen, self.terrain, self.players, self.turn_manager, font,
-                    projectile=projectile, explosion=explosion,
+                    projectile=projectile, explosion=explosion, explosion_progress=explosion_progress,
                     game_over_text=game_over_text, big_font=big_font,
                     trajectory=trajectory,
                 )

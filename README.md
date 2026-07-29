@@ -21,9 +21,14 @@ the full design and development milestones.
   the simulation and runs headless; `client.py` connects over TCP, renders whatever
   the server broadcasts, and sends local input. This replaced the old single-process
   hot-seat mode.
+- Phase 7 (Polish): animated explosions, synthesized fire/impact sound effects, HP and
+  fuel bars in the scoreboard, and a restart flow after a win/draw. Tank hitboxes are
+  now shaped like the actual tank + barrel rather than a flat inflated rectangle, and
+  each match now generates fresh random terrain instead of the same fixed layout.
 
 While aiming, a dotted yellow line previews the shell's arc for the current angle,
-power, and ammo — it updates live as you adjust either.
+power, and ammo, updating live as you adjust either — though it only traces the first
+60% of the arc, so landing a shot still takes some judgment.
 
 ## Running
 
@@ -46,5 +51,6 @@ Controls (apply on your turn):
 - `E`/`Q` — increase/decrease firing power
 - `1`/`2`/`3` — select Light/Medium/Heavy shell
 - `Space` — fire (spends the turn)
+- `R` — after a match ends, start a fresh one (new random terrain, full health)
 
 Close a window or press Ctrl+C on the server to quit.
