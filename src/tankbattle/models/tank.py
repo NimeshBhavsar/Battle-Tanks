@@ -76,12 +76,20 @@ class Tank:
         )
 
     def take_damage(self, amount: float) -> None:
-        """Reduce health, floored at zero. Implemented in Phase 4."""
-        raise NotImplementedError("Damage handling lands in Phase 4")
+        """Reduce health, floored at zero."""
+        self.health = clamp(self.health - amount, 0, TANK_START_HEALTH)
+
+    @property
+    def alive(self) -> bool:
+        return self.health > 0
+
+    def get_rect(self) -> pygame.Rect:
+        rect = pygame.Rect(0, 0, TANK_WIDTH, TANK_HEIGHT)
+        rect.midbottom = self.position
+        return rect
 
     def barrel_tip(self) -> tuple[float, float]:
-        body_rect = pygame.Rect(0, 0, TANK_WIDTH, TANK_HEIGHT)
-        body_rect.midbottom = self.position
+        body_rect = self.get_rect()
         angle_rad = math.radians(self.angle)
         return (
             body_rect.centerx + BARREL_LENGTH * math.cos(angle_rad),
@@ -89,8 +97,7 @@ class Tank:
         )
 
     def draw(self, surface: pygame.Surface) -> None:
-        body_rect = pygame.Rect(0, 0, TANK_WIDTH, TANK_HEIGHT)
-        body_rect.midbottom = self.position
+        body_rect = self.get_rect()
         pygame.draw.rect(surface, self.color, body_rect, border_radius=3)
         pygame.draw.rect(surface, BLACK, body_rect, width=1, border_radius=3)
         pygame.draw.line(surface, BARREL_COLOR, body_rect.center, self.barrel_tip(), 4)

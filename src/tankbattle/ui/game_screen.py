@@ -18,6 +18,8 @@ def render(
     font: pygame.font.Font,
     projectile: Projectile | None = None,
     explosion: tuple[float, float] | None = None,
+    game_over_text: str | None = None,
+    big_font: pygame.font.Font | None = None,
 ) -> None:
     surface.fill(SKY_COLOR)
     terrain.draw(surface)
@@ -27,4 +29,8 @@ def render(
         projectile.draw(surface)
     if explosion is not None:
         pygame.draw.circle(surface, EXPLOSION_COLOR, (int(explosion[0]), int(explosion[1])), EXPLOSION_RADIUS)
-    hud.draw_turn_indicator(surface, font, turn_manager)
+
+    if game_over_text and big_font is not None:
+        hud.draw_message(surface, big_font, game_over_text)
+    else:
+        hud.draw_turn_indicator(surface, font, turn_manager)

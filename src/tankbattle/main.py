@@ -1,10 +1,12 @@
 """Phase 1: open a window, show static terrain, two tanks, and a turn indicator.
 Phase 2: move, rotate the barrel, adjust power; moving spends the turn.
 Phase 3: fire shells with weight-dependent trajectories; firing spends the turn.
+Phase 4: detect hits, apply distance-based damage, and detect game over.
 """
 
 import pygame
 
+from tankbattle.engine import collision, damage
 from tankbattle.engine.turn_manager import TurnManager
 from tankbattle.models.ammunition import HeavyShell, LightShell, MediumShell
 from tankbattle.models.player import Player
@@ -20,6 +22,7 @@ from tankbattle.utils.constants import (
     SCREEN_WIDTH,
     WINDOW_TITLE,
 )
+from tankbattle.utils.helpers import distance
 
 
 def build_players(terrain: Terrain) -> list[Player]:
@@ -37,6 +40,7 @@ def run(headless: bool = False, max_frames: int | None = None) -> None:
     pygame.display.set_caption(WINDOW_TITLE)
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 28)
+    big_font = pygame.font.SysFont(None, 64)
 
     terrain = Terrain(seed=42)
     players = build_players(terrain)
@@ -48,6 +52,7 @@ def run(headless: bool = False, max_frames: int | None = None) -> None:
     active_projectile = None
     explosion_position = None
     explosion_frames_left = 0
+    game_over_text = None
 
     frame_count = 0
     running = True
@@ -57,6 +62,8 @@ def run(headless: bool = False, max_frames: int | None = None) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif game_over_text is not None:
+                continue
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE and active_projectile is None and not acted_this_turn:
                     active_projectile = current_tank.fire()
@@ -67,36 +74,49 @@ def run(headless: bool = False, max_frames: int | None = None) -> None:
                 turn_manager.end_turn()
                 acted_this_turn = False
 
-        if active_projectile is None:
-            keys = pygame.key.get_pressed()
-            if current_tank.fuel > 0:
-                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-                    current_tank.move(-1, terrain)
-                    acted_this_turn = True
-                elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-                    current_tank.move(1, terrain)
-                    acted_this_turn = True
+        if game_over_text is None:
+            if active_projectile is None:
+                keys = pygame.key.get_pressed()
+                if current_tank.fuel > 0:
+                    if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                        current_tank.move(-1, terrain)
+                        acted_this_turn = True
+                    elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                        current_tank.move(1, terrain)
+                        acted_this_turn = True
 
-            if keys[pygame.K_UP] or keys[pygame.K_w]:
-                current_tank.rotate_barrel(1)
-            elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
-                current_tank.rotate_barrel(-1)
+                if keys[pygame.K_UP] or keys[pygame.K_w]:
+                    current_tank.rotate_barrel(1)
+                elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                    current_tank.rotate_barrel(-1)
 
-            if keys[pygame.K_e]:
-                current_tank.adjust_power(1)
-            elif keys[pygame.K_q]:
-                current_tank.adjust_power(-1)
-        else:
-            active_projectile.update()
-            px, py = active_projectile.position
-            hit_ground = py >= terrain.height_at(px)
-            out_of_bounds = px < 0 or px > SCREEN_WIDTH or py > SCREEN_HEIGHT
-            if hit_ground or out_of_bounds:
-                explosion_position = active_projectile.explode()
-                explosion_frames_left = EXPLOSION_FRAMES
-                active_projectile = None
-                turn_manager.end_turn()
-                acted_this_turn = False
+                if keys[pygame.K_e]:
+                    current_tank.adjust_power(1)
+                elif keys[pygame.K_q]:
+                    current_tank.adjust_power(-1)
+            else:
+                active_projectile.update()
+                opponents = [p.tank for p in players if p.tank is not current_tank]
+                hit_point = collision.check_collision(active_projectile, terrain, opponents)
+                if hit_point is not None:
+                    blast_radius = active_projectile.blast_radius
+                    max_damage = active_projectile.damage
+                    explosion_position = active_projectile.explode()
+                    explosion_frames_left = EXPLOSION_FRAMES
+                    active_projectile = None
+
+                    for player in players:
+                        hit_distance = distance(player.tank.position, explosion_position)
+                        amount = damage.calculate_damage(hit_distance, blast_radius, max_damage)
+                        if amount > 0:
+                            player.tank.take_damage(amount)
+
+                    survivors = [p for p in players if p.tank.alive]
+                    if len(survivors) <= 1:
+                        game_over_text = f"{survivors[0].name} Wins!" if survivors else "Draw!"
+                    else:
+                        turn_manager.end_turn()
+                        acted_this_turn = False
 
         if explosion_position is not None:
             explosion_frames_left -= 1
@@ -106,6 +126,7 @@ def run(headless: bool = False, max_frames: int | None = None) -> None:
         game_screen.render(
             screen, terrain, players, turn_manager, font,
             projectile=active_projectile, explosion=explosion_position,
+            game_over_text=game_over_text, big_font=big_font,
         )
         pygame.display.flip()
         clock.tick(FPS)

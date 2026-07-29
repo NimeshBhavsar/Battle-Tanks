@@ -12,6 +12,9 @@ the full design and development milestones.
   aiming (rotate/power) doesn't.
 - Phase 3 (Projectile Physics): fire shells with weight-dependent trajectories; firing
   spends the turn. Heavier shells arc shorter and drop faster.
+- Phase 4 (Combat): shells detonate on hitting a tank, the ground, or the map edge;
+  damage falls off with distance from the blast center; the game ends when only one
+  tank (or none) is left standing.
 
 ## Running
 
