@@ -10,6 +10,7 @@ from tankbattle.models.ammunition import LightShell
 from tankbattle.models.projectile import Projectile
 from tankbattle.settings import TANK_START_FUEL, TANK_START_HEALTH
 from tankbattle.utils.constants import (
+    AMMO_WEIGHT_GRAVITY_SCALE,
     BARREL_COLOR,
     BARREL_LENGTH,
     BLACK,
@@ -24,6 +25,8 @@ from tankbattle.utils.constants import (
     TANK_POWER_STEP,
     TANK_ROTATE_SPEED,
     TANK_WIDTH,
+    TRAJECTORY_MAX_POINTS,
+    TRAJECTORY_STEPS_PER_POINT,
 )
 from tankbattle.utils.helpers import clamp
 
@@ -74,6 +77,22 @@ class Tank:
             damage=ammo.damage,
             blast_radius=ammo.blast_radius,
         )
+
+    def preview_trajectory(self, terrain: "Terrain") -> list[tuple[float, float]]:
+        """Sample points along the arc this tank would fire along right now, for an aiming aid."""
+        position = self.barrel_tip()
+        velocity = physics.launch_velocity(self.power * LAUNCH_POWER_SCALE, self.angle)
+        weight_factor = self.current_ammo.weight * AMMO_WEIGHT_GRAVITY_SCALE
+
+        points: list[tuple[float, float]] = []
+        for i in range(TRAJECTORY_MAX_POINTS * TRAJECTORY_STEPS_PER_POINT):
+            position, velocity = physics.step(position, velocity, weight_factor)
+            if i % TRAJECTORY_STEPS_PER_POINT == 0:
+                points.append(position)
+            x, y = position
+            if y >= terrain.height_at(x) or x < 0 or x > terrain.width or y > terrain.height:
+                break
+        return points
 
     def take_damage(self, amount: float) -> None:
         """Reduce health, floored at zero."""

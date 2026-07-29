@@ -129,10 +129,15 @@ def run(headless: bool = False, max_frames: int | None = None) -> None:
             if explosion_frames_left <= 0:
                 explosion_position = None
 
+        trajectory = None
+        if game_over_text is None and active_projectile is None:
+            trajectory = current_tank.preview_trajectory(terrain)
+
         game_screen.render(
             screen, terrain, players, turn_manager, font,
             projectile=active_projectile, explosion=explosion_position,
             game_over_text=game_over_text, big_font=big_font,
+            trajectory=trajectory,
         )
         pygame.display.flip()
         clock.tick(FPS)
