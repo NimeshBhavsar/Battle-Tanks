@@ -16,3 +16,10 @@ class TurnManager:
 
     def end_turn(self) -> None:
         self._current_index = (self._current_index + 1) % len(self.players)
+
+    def set_current(self, player_id: int) -> None:
+        """Sync to an authoritative turn state (used by networked clients)."""
+        for index, player in enumerate(self.players):
+            if player.player_id == player_id:
+                self._current_index = index
+                return

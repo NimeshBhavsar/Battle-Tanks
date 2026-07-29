@@ -17,14 +17,29 @@ the full design and development milestones.
   tank (or none) is left standing.
 - Phase 5 (Terrain Deformation): explosions carve craters into the terrain; tanks
   settle onto the reshaped ground after every blast.
+- Phase 6 (Networking): the game is now a real client/server split. `server.py` owns
+  the simulation and runs headless; `client.py` connects over TCP, renders whatever
+  the server broadcasts, and sends local input. This replaced the old single-process
+  hot-seat mode.
+
+While aiming, a dotted yellow line previews the shell's arc for the current angle,
+power, and ammo — it updates live as you adjust either.
 
 ## Running
 
+Start the server first, then connect two clients (in separate terminals — each opens
+its own window):
+
 ```sh
-uv run tankbattle
+uv run tankbattle server
+uv run tankbattle client   # player 1
+uv run tankbattle client   # player 2
 ```
 
-Controls (apply to whichever player's turn it is):
+By default the server listens on `127.0.0.1:5555`; both subcommands accept `--host`
+and `--port` to point at a different address (e.g. to play over a LAN).
+
+Controls (apply on your turn):
 
 - `Left`/`A`, `Right`/`D` — move (spends the turn on release)
 - `Up`/`W`, `Down`/`S` — rotate the barrel
@@ -32,4 +47,4 @@ Controls (apply to whichever player's turn it is):
 - `1`/`2`/`3` — select Light/Medium/Heavy shell
 - `Space` — fire (spends the turn)
 
-Close the window or press the window's close button to quit.
+Close a window or press Ctrl+C on the server to quit.

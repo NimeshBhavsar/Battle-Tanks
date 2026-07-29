@@ -1,11 +1,146 @@
-"""Networked client: renders the state it receives and sends player input. Implemented in Phase 6."""
+"""Networked client: renders the state broadcast by the server and sends local input.
+
+The client never simulates the game itself — it mirrors whatever the server last
+broadcast (terrain, tanks, projectile, turn) and sends its own held keys/actions
+every frame. The server decides what actually happens.
+"""
+
+import socket
+import threading
+
+import pygame
+
+from tankbattle import network
+from tankbattle.engine.turn_manager import TurnManager
+from tankbattle.models.ammunition import AMMO_BY_NAME
+from tankbattle.models.player import Player
+from tankbattle.models.projectile import Projectile
+from tankbattle.models.tank import Tank
+from tankbattle.models.terrain import Terrain
+from tankbattle.ui import game_screen, hud
+from tankbattle.utils.constants import FPS, SCREEN_HEIGHT, SCREEN_WIDTH, SKY_COLOR, WINDOW_TITLE
 
 
 class GameClient:
     def __init__(self, host: str, port: int):
         self.host = host
         self.port = port
+        self.player_id: int | None = None
+        self.sock: socket.socket | None = None
+
+        self.lock = threading.Lock()
+        self.latest_state: dict | None = None
+
+        self.terrain = Terrain(seed=0)  # overwritten by the first state broadcast
+        self.tanks_by_id: dict[int, Tank] = {}
+        self.players: list[Player] = []
+        self.turn_manager: TurnManager | None = None
 
     def connect(self) -> None:
-        """Connect to the game server and start the render/input loop. Implemented in Phase 6."""
-        raise NotImplementedError("The networked client lands in Phase 6")
+        self.sock = socket.create_connection((self.host, self.port))
+        welcome = network.receive_message(self.sock)
+        self.player_id = welcome["player_id"]
+        threading.Thread(target=self._receive_loop, daemon=True).start()
+        self._run_render_loop()
+
+    def _receive_loop(self) -> None:
+        while True:
+            message = network.receive_message(self.sock)
+            if message is None:
+                break
+            if message.get("type") == "state":
+                with self.lock:
+                    self.latest_state = message
+
+    def _apply_state(self, state: dict) -> None:
+        """Mirror a server state broadcast onto local render-only objects."""
+        self.terrain.height_map = list(state["terrain"])
+
+        for tank_data in state["tanks"]:
+            player_id = tank_data["player_id"]
+            tank = self.tanks_by_id.get(player_id)
+            if tank is None:
+                tank = Tank(player_id, tank_data["position"][0], tank_data["position"][1], tuple(tank_data["color"]))
+                self.tanks_by_id[player_id] = tank
+                self.players.append(Player(player_id, tank_data["name"], tank))
+            tank.position = tuple(tank_data["position"])
+            tank.angle = tank_data["angle"]
+            tank.power = tank_data["power"]
+            tank.health = tank_data["health"]
+            tank.fuel = tank_data["fuel"]
+            tank.current_ammo = AMMO_BY_NAME[tank_data["ammo"]]()
+
+        if self.turn_manager is None and len(self.players) == 2:
+            self.players.sort(key=lambda p: p.player_id)
+            self.turn_manager = TurnManager(self.players)
+
+        if self.turn_manager is not None:
+            self.turn_manager.set_current(state["current_player_id"])
+
+    def _run_render_loop(self) -> None:
+        pygame.init()
+        screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.display.set_caption(f"{WINDOW_TITLE} — Player {self.player_id}")
+        clock = pygame.time.Clock()
+        font = pygame.font.SysFont(None, 28)
+        big_font = pygame.font.SysFont(None, 64)
+
+        running = True
+        while running:
+            fire = False
+            ammo = None
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        fire = True
+                    elif event.key == pygame.K_1:
+                        ammo = "Light"
+                    elif event.key == pygame.K_2:
+                        ammo = "Medium"
+                    elif event.key == pygame.K_3:
+                        ammo = "Heavy"
+
+            keys = pygame.key.get_pressed()
+            move = -1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0
+            rotate = 1 if (keys[pygame.K_UP] or keys[pygame.K_w]) else -1 if (keys[pygame.K_DOWN] or keys[pygame.K_s]) else 0
+            power_dir = 1 if keys[pygame.K_e] else -1 if keys[pygame.K_q] else 0
+
+            try:
+                network.send_message(self.sock, {"move": move, "rotate": rotate, "power": power_dir, "fire": fire, "ammo": ammo})
+            except OSError:
+                running = False
+                break
+
+            with self.lock:
+                state = self.latest_state
+
+            if state is None:
+                screen.fill(SKY_COLOR)
+                hud.draw_message(screen, font, "Waiting for opponent...")
+            else:
+                self._apply_state(state)
+
+                projectile = None
+                if state.get("projectile"):
+                    projectile = Projectile(tuple(state["projectile"]["position"]), (0.0, 0.0), 0, 0, 0)
+                explosion = tuple(state["explosion"]) if state.get("explosion") else None
+                game_over_text = state.get("game_over_text")
+
+                trajectory = None
+                is_my_turn = self.turn_manager.current_player.player_id == self.player_id
+                if game_over_text is None and projectile is None and is_my_turn:
+                    trajectory = self.tanks_by_id[self.player_id].preview_trajectory(self.terrain)
+
+                game_screen.render(
+                    screen, self.terrain, self.players, self.turn_manager, font,
+                    projectile=projectile, explosion=explosion,
+                    game_over_text=game_over_text, big_font=big_font,
+                    trajectory=trajectory,
+                )
+
+            pygame.display.flip()
+            clock.tick(FPS)
+
+        pygame.quit()
