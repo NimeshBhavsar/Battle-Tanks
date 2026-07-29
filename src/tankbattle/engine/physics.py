@@ -6,10 +6,13 @@ GRAVITY_CONSTANT = 9.8
 
 
 def launch_velocity(power: float, angle_degrees: float) -> tuple[float, float]:
-    """Decompose power + angle into initial (vx, vy)."""
+    """Decompose power + angle into initial (vx, vy).
+
+    Screen y grows downward, so "up" (angle 90) yields a negative vy.
+    """
     angle_rad = math.radians(angle_degrees)
     vx = power * math.cos(angle_rad)
-    vy = power * math.sin(angle_rad)
+    vy = -power * math.sin(angle_rad)
     return vx, vy
 
 

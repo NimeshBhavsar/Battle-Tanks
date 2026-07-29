@@ -1,4 +1,9 @@
-"""A fired shell in flight. Implemented in Phase 3."""
+"""A fired shell in flight."""
+
+import pygame
+
+from tankbattle.engine import physics
+from tankbattle.utils.constants import AMMO_WEIGHT_GRAVITY_SCALE, PROJECTILE_COLOR, PROJECTILE_RADIUS
 
 
 class Projectile:
@@ -8,11 +13,18 @@ class Projectile:
         self.weight = weight
         self.damage = damage
         self.blast_radius = blast_radius
+        self.exploded = False
 
-    def update(self, dt: float) -> None:
-        """Advance position by one simulation step. Implemented in Phase 3."""
-        raise NotImplementedError("Projectile motion lands in Phase 3")
+    def update(self) -> None:
+        """Advance position by one simulation frame."""
+        weight_factor = self.weight * AMMO_WEIGHT_GRAVITY_SCALE
+        self.position, self.velocity = physics.step(self.position, self.velocity, weight_factor)
 
-    def explode(self):
-        """Resolve impact into an explosion point. Implemented in Phase 3."""
-        raise NotImplementedError("Explosions land in Phase 3")
+    def explode(self) -> tuple[float, float]:
+        """Mark this shell as spent and report where it detonated."""
+        self.exploded = True
+        return self.position
+
+    def draw(self, surface: pygame.Surface) -> None:
+        pos = (int(self.position[0]), int(self.position[1]))
+        pygame.draw.circle(surface, PROJECTILE_COLOR, pos, PROJECTILE_RADIUS)

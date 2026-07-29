@@ -31,3 +31,12 @@ TANK_MAX_ANGLE = 180.0
 TANK_POWER_STEP = 1.0  # percent/frame
 TANK_POWER_MIN = 0.0
 TANK_POWER_MAX = 100.0
+
+# Projectile physics (Phase 3)
+LAUNCH_POWER_SCALE = 0.15  # tank.power percent -> px/frame launch speed
+AMMO_WEIGHT_GRAVITY_SCALE = 0.05  # ammo.weight -> gravity contribution
+PROJECTILE_RADIUS = 4
+PROJECTILE_COLOR = (20, 20, 20)
+EXPLOSION_COLOR = (255, 140, 0)
+EXPLOSION_RADIUS = 18
+EXPLOSION_FRAMES = 15

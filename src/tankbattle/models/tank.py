@@ -5,11 +5,15 @@ from typing import TYPE_CHECKING
 
 import pygame
 
-from tankbattle.settings import TANK_START_AMMO, TANK_START_FUEL, TANK_START_HEALTH
+from tankbattle.engine import physics
+from tankbattle.models.ammunition import LightShell
+from tankbattle.models.projectile import Projectile
+from tankbattle.settings import TANK_START_FUEL, TANK_START_HEALTH
 from tankbattle.utils.constants import (
     BARREL_COLOR,
     BARREL_LENGTH,
     BLACK,
+    LAUNCH_POWER_SCALE,
     TANK_FUEL_COST_PER_FRAME,
     TANK_HEIGHT,
     TANK_MAX_ANGLE,
@@ -37,7 +41,7 @@ class Tank:
         self.power = 50.0  # percent, used as launch power in Phase 3
         self.health = TANK_START_HEALTH
         self.fuel = TANK_START_FUEL
-        self.current_ammo = TANK_START_AMMO
+        self.current_ammo = LightShell()
         self.velocity = (0.0, 0.0)
 
     def move(self, direction: int, terrain: "Terrain") -> None:
@@ -58,25 +62,35 @@ class Tank:
         """Adjust firing power. direction is -1 or 1."""
         self.power = clamp(self.power + direction * TANK_POWER_STEP, TANK_POWER_MIN, TANK_POWER_MAX)
 
-    def fire(self):
-        """Launch a projectile using the current angle/power/ammo. Implemented in Phase 3."""
-        raise NotImplementedError("Firing lands in Phase 3")
+    def fire(self) -> Projectile:
+        """Launch a projectile from the barrel tip using the current angle/power/ammo."""
+        speed = self.power * LAUNCH_POWER_SCALE
+        velocity = physics.launch_velocity(speed, self.angle)
+        ammo = self.current_ammo
+        return Projectile(
+            position=self.barrel_tip(),
+            velocity=velocity,
+            weight=ammo.weight,
+            damage=ammo.damage,
+            blast_radius=ammo.blast_radius,
+        )
 
     def take_damage(self, amount: float) -> None:
         """Reduce health, floored at zero. Implemented in Phase 4."""
         raise NotImplementedError("Damage handling lands in Phase 4")
 
-    def draw(self, surface: pygame.Surface) -> None:
-        x, y = self.position
+    def barrel_tip(self) -> tuple[float, float]:
         body_rect = pygame.Rect(0, 0, TANK_WIDTH, TANK_HEIGHT)
-        body_rect.midbottom = (x, y)
+        body_rect.midbottom = self.position
+        angle_rad = math.radians(self.angle)
+        return (
+            body_rect.centerx + BARREL_LENGTH * math.cos(angle_rad),
+            body_rect.centery - BARREL_LENGTH * math.sin(angle_rad),
+        )
+
+    def draw(self, surface: pygame.Surface) -> None:
+        body_rect = pygame.Rect(0, 0, TANK_WIDTH, TANK_HEIGHT)
+        body_rect.midbottom = self.position
         pygame.draw.rect(surface, self.color, body_rect, border_radius=3)
         pygame.draw.rect(surface, BLACK, body_rect, width=1, border_radius=3)
-
-        barrel_origin = body_rect.center
-        angle_rad = math.radians(self.angle)
-        barrel_end = (
-            barrel_origin[0] + BARREL_LENGTH * math.cos(angle_rad),
-            barrel_origin[1] - BARREL_LENGTH * math.sin(angle_rad),
-        )
-        pygame.draw.line(surface, BARREL_COLOR, barrel_origin, barrel_end, 4)
+        pygame.draw.line(surface, BARREL_COLOR, body_rect.center, self.barrel_tip(), 4)
