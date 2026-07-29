@@ -2,11 +2,12 @@
 Phase 2: move, rotate the barrel, adjust power; moving spends the turn.
 Phase 3: fire shells with weight-dependent trajectories; firing spends the turn.
 Phase 4: detect hits, apply distance-based damage, and detect game over.
+Phase 5: carve craters into the terrain and settle tanks onto the new ground.
 """
 
 import pygame
 
-from tankbattle.engine import collision, damage
+from tankbattle.engine import collision, damage, terrain_engine
 from tankbattle.engine.turn_manager import TurnManager
 from tankbattle.models.ammunition import HeavyShell, LightShell, MediumShell
 from tankbattle.models.player import Player
@@ -110,6 +111,11 @@ def run(headless: bool = False, max_frames: int | None = None) -> None:
                         amount = damage.calculate_damage(hit_distance, blast_radius, max_damage)
                         if amount > 0:
                             player.tank.take_damage(amount)
+
+                    terrain_engine.carve_crater(terrain, *explosion_position, blast_radius)
+                    for player in players:
+                        tx, _ = player.tank.position
+                        player.tank.position = (tx, terrain.height_at(tx))
 
                     survivors = [p for p in players if p.tank.alive]
                     if len(survivors) <= 1:

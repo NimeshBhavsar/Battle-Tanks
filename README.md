@@ -15,6 +15,8 @@ the full design and development milestones.
 - Phase 4 (Combat): shells detonate on hitting a tank, the ground, or the map edge;
   damage falls off with distance from the blast center; the game ends when only one
   tank (or none) is left standing.
+- Phase 5 (Terrain Deformation): explosions carve craters into the terrain; tanks
+  settle onto the reshaped ground after every blast.
 
 ## Running
 

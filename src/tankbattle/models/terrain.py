@@ -1,5 +1,6 @@
 """Destructible terrain, stored as a height map rather than per-pixel data."""
 
+import math
 import random
 
 import pygame
@@ -44,10 +45,18 @@ class Terrain:
         pygame.draw.polygon(surface, GROUND_COLOR, points)
         pygame.draw.lines(surface, GROUND_OUTLINE_COLOR, False, [(x, self.height_map[x]) for x in range(self.width)], 2)
 
-    def destroy_circle(self, x: int, y: int, radius: int) -> None:
-        """Carve a crater into the height map. Implemented in Phase 5."""
-        raise NotImplementedError("Terrain deformation lands in Phase 5")
+    def destroy_circle(self, x: float, y: float, radius: float) -> None:
+        """Carve a circular crater into the height map, centered at (x, y)."""
+        center = int(x)
+        left = max(0, center - int(radius))
+        right = min(self.width - 1, center + int(radius))
+        for col in range(left, right + 1):
+            dx = col - x
+            if abs(dx) > radius:
+                continue
+            crater_bottom = y + math.sqrt(radius * radius - dx * dx)
+            self.height_map[col] = min(self.height, max(self.height_map[col], int(crater_bottom)))
 
     def collision(self, x: int, y: int) -> bool:
-        """Whether point (x, y) is at or below the ground surface. Implemented in Phase 4."""
-        raise NotImplementedError("Terrain collision lands in Phase 4")
+        """Whether point (x, y) is at or below the ground surface."""
+        return y >= self.height_at(x)
