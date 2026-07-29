@@ -1,67 +1,173 @@
 # Tank Battle
 
-A local-network, turn-based tank artillery game built with Pygame. Two tanks trade shots
-across destructible terrain; an authoritative server owns physics and game state while
-clients render and send input. See [ProjectArchitecture.md](ProjectArchitecture.md) for
-the full design and development milestones.
+A real-time, turn-based, network-multiplayer artillery game (in the spirit of *Scorched
+Earth* / *Worms*) written in Python with [Pygame](https://www.pygame.org/). Two players
+connect over TCP sockets, aim across procedurally generated, destructible terrain, and
+trade shells until one tank is left standing.
 
-## Status
+The project is built as an authoritative-server / thin-client system: `server.py` owns
+the entire simulation (physics, collisions, damage, turn order) and runs headless;
+`client.py` only renders whatever the server broadcasts and sends the local player's
+input. This mirrors how real multiplayer games are structured, and is the reason the
+project is split across dedicated `engine/`, `models/`, `ui/`, and networking modules
+rather than one script.
 
-- Phase 1 (Core): window creation, static terrain, two tanks on the map, and a turn indicator.
-- Phase 2 (Tank Controls): move, rotate the barrel, adjust power. Moving spends the turn;
-  aiming (rotate/power) doesn't.
-- Phase 3 (Projectile Physics): fire shells with weight-dependent trajectories; firing
-  spends the turn. Heavier shells arc shorter and drop faster.
-- Phase 4 (Combat): shells detonate on hitting a tank, the ground, or the map edge;
-  damage falls off with distance from the blast center; the game ends when only one
-  tank (or none) is left standing.
-- Phase 5 (Terrain Deformation): explosions carve craters into the terrain; tanks
-  settle onto the reshaped ground after every blast.
-- Phase 6 (Networking): the game is now a real client/server split. `server.py` owns
-  the simulation and runs headless; `client.py` connects over TCP, renders whatever
-  the server broadcasts, and sends local input. This replaced the old single-process
-  hot-seat mode.
-- Phase 7 (Polish): animated explosions, synthesized fire/impact sound effects, HP and
-  fuel bars in the scoreboard, and a restart flow after a win/draw. Tank hitboxes are
-  now shaped like the actual tank + barrel rather than a flat inflated rectangle, and
-  each match now generates fresh random terrain instead of the same fixed layout.
+See [ProjectArchitecture.md](ProjectArchitecture.md) for the original design document
+and the phase-by-phase build plan this project followed.
 
-While aiming, a dotted yellow line previews the shell's arc for the current angle,
-power, and ammo, updating live as you adjust either — though it only traces the first
-60% of the arc, so landing a shot still takes some judgment. Shell size (and hit size)
-scales with ammo weight — Heavy rounds draw and hit as a noticeably bigger ball than
-Light ones.
+## Features
 
-Press `Esc` any time to open the menu, where you can rename yourself and — once a
-match has ended — restart with fresh terrain.
+- Turn-based movement, aiming (angle/power), and firing, with a live trajectory preview
+- Projectile physics where shell weight (Light/Medium/Heavy) changes arc, drop speed,
+  and even the shell's on-screen (and hit-detection) size
+- Distance-based explosion damage and terrain deformation (craters), each carved into a
+  per-column height map
+- A real client/server network architecture (length-prefixed JSON over TCP), not just a
+  shared-process hot-seat mode
+- HP/fuel bars, animated explosions, synthesized sound effects (no external audio
+  assets needed), and a menu for renaming yourself and restarting a finished match
+
+## Requirements
+
+- Python >= 3.10
+- [uv](https://docs.astral.sh/uv/) (recommended) or `pip`
+- An audio-capable environment is optional - sound effects fail silently if no audio
+  device is available
+
+## Installation
+
+```sh
+git clone <this-repository-url>
+cd "Intro to Python"
+uv pip install -e .
+```
+
+This installs the `tankbattle` package (declared via `pyproject.toml`'s
+`[build-system]`, using `uv_build`) in editable mode, along with its one runtime
+dependency, `pygame`.
 
 ## Running
 
-Start the server first, then connect two clients (in separate terminals — each opens
-its own window):
+The game needs three processes: one server and two clients (each client opens its own
+window). Run each in a separate terminal:
 
 ```sh
-uv run tankbattle server
-uv run tankbattle client   # player 1
-uv run tankbattle client   # player 2
+uv run -m tankbattle server
+uv run -m tankbattle client   # player 1
+uv run -m tankbattle client   # player 2
 ```
 
-By default the server listens on `127.0.0.1:5555`; both subcommands accept `--host`
-and `--port` to point at a different address (e.g. to play over a LAN).
+(A console-script shortcut is also installed, so `uv run tankbattle server` /
+`uv run tankbattle client` work identically.)
 
-Controls (apply on your turn):
+By default the server listens on `127.0.0.1:5555`. Both subcommands accept `--host` and
+`--port` if you want to play across a LAN instead of on one machine:
 
-- `Left`/`A`, `Right`/`D` — move (spends the turn on release)
-- `Up`/`W`, `Down`/`S` — rotate the barrel
-- `E`/`Q` — increase/decrease firing power
-- `1`/`2`/`3` — select Light/Medium/Heavy shell
-- `Space` — fire (spends the turn)
-- `Esc` — open/close the menu
+```sh
+uv run -m tankbattle server --host 0.0.0.0 --port 5555
+uv run -m tankbattle client --host <server-ip> --port 5555
+```
 
-In the menu:
+## Controls
 
-- `N` — edit your name (type, `Backspace` to correct, `Enter` to confirm, `Esc` to cancel)
-- `R` — once a match has ended, restart with fresh terrain and full health
-- `Esc` — close the menu
+Apply on your turn:
 
-Close a window or press Ctrl+C on the server to quit.
+| Key(s) | Action |
+| --- | --- |
+| `Left`/`A`, `Right`/`D` | Move (spends the turn on release) |
+| `Up`/`W`, `Down`/`S` | Rotate the barrel |
+| `E` / `Q` | Increase / decrease firing power |
+| `1` / `2` / `3` | Select Light / Medium / Heavy shell |
+| `Space` | Fire (spends the turn) |
+| `Esc` | Open/close the menu |
+
+In the menu: `N` edits your name, `R` restarts once a match has ended, `Esc` closes it.
+
+## Project structure
+
+```text
+src/tankbattle/
+    __main__.py         entry point for `python -m tankbattle`
+    main.py              CLI (argparse) - dispatches to server or client
+    server.py            authoritative GameServer: owns all game state, runs headless
+    client.py             GameClient: renders server state, sends local input
+    network.py            length-prefixed JSON message framing over TCP
+    settings.py            session config (starting stats, default host/port)
+
+    models/                game objects
+        tank.py, projectile.py, terrain.py, ammunition.py, player.py
+
+    engine/                 rules, with no rendering/networking knowledge
+        physics.py, collision.py, damage.py, turn_manager.py, terrain_engine.py
+
+    ui/                     pygame rendering only
+        game_screen.py, hud.py, menu.py, sound.py
+
+    utils/
+        constants.py, helpers.py
+
+assets/                    art/audio folders (currently empty placeholders -
+                            sound effects are synthesized in code instead)
+```
+
+## Course concepts
+
+Where each topic actually shows up in this codebase:
+
+- **Primitives, control flow, containers** - everywhere, but concentrated in
+  [server.py](src/tankbattle/server.py) (`_tick`/`_apply_input`: if/elif chains, early
+  returns), [terrain.py](src/tankbattle/models/terrain.py) (`destroy_circle`'s
+  per-column loop over a `list` height map). Containers: `dict` for
+  [server.py](src/tankbattle/server.py)'s `pending_inputs`/`client_sockets`,
+  [client.py](src/tankbattle/client.py)'s `tanks_by_id`,
+  [ammunition.py](src/tankbattle/models/ammunition.py)'s `AMMO_BY_NAME`; `tuple` for
+  positions/velocities throughout; a list comprehension at
+  [server.py:145](src/tankbattle/server.py#L145)
+  (`opponents = [p.tank for p in self.players if ...]`).
+
+- **Functions** - small, pure, single-purpose functions are the backbone of `engine/`:
+  [physics.py](src/tankbattle/engine/physics.py) (`launch_velocity`, `step`),
+  [damage.py](src/tankbattle/engine/damage.py) (`calculate_damage`),
+  [helpers.py](src/tankbattle/utils/helpers.py) (`clamp`, `distance`,
+  `distance_to_segment`).
+
+- **Classes** - one per file under `models/`, plus `TurnManager`, `GameServer`,
+  `GameClient`. [tank.py](src/tankbattle/models/tank.py) is the clearest example of
+  state + behavior encapsulated together; `@property` is used for computed attributes
+  at [tank.py:82](src/tankbattle/models/tank.py#L82) (`alive`) and
+  [projectile.py:17](src/tankbattle/models/projectile.py#L17) (`radius`, derived from
+  ammo weight).
+
+- **Inheritance & polymorphism** -
+  [ammunition.py](src/tankbattle/models/ammunition.py): `Ammo` is the base class,
+  `LightShell`/`MediumShell`/`HeavyShell` inherit from it and only override the
+  constructor's values. The polymorphism is in how they're *used*: `Tank.fire()`
+  ([tank.py:68-79](src/tankbattle/models/tank.py#L68-L79)) and `Projectile`
+  ([projectile.py:17-19](src/tankbattle/models/projectile.py#L17-L19)) never check
+  which subclass they hold - they just read `.weight`/`.damage`/`.blast_radius`/`.name`
+  on whatever `Ammo` instance they were given.
+
+- **Packaging** - [pyproject.toml](pyproject.toml) (`[build-system]`, `uv_build`,
+  console-script entry point), the `src/` layout, and
+  [`__main__.py`](src/tankbattle/__main__.py) for `python -m tankbattle`.
+
+- **Version control** - the commit history shows incremental, meaningful progress
+  (`v5.0` terrain deformation through `v8` ammo-scaled ball size / menu / restart).
+
+- **Not used**: numpy, pandas, and matplotlib are not used - a real-time game
+  doesn't naturally need array math, tabular data, or static plots, so there was no
+  organic place for them.
+
+## Development notes
+
+The server and client can each be exercised without a display: `server.py` never calls
+into pygame's rendering/audio subsystems, and both were developed against headless
+(`SDL_VIDEODRIVER=dummy`) smoke tests plus real two-window playtests before each
+feature was considered done.
+
+## Status
+
+All phases from [ProjectArchitecture.md](ProjectArchitecture.md)'s milestone list are
+implemented: window/terrain/turn setup, tank controls, projectile physics, combat,
+terrain deformation, client/server networking, and polish (animation, sound, HUD,
+restart flow).
