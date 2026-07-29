@@ -1,16 +1,19 @@
 [project]
-name = "intro-to-python"
+name = "tankbattle"
 version = "0.1.0"
-description = "Add your description here"
+description = "A local-network, turn-based tank artillery game built with Pygame."
 readme = "README.md"
 authors = [
     { name = "Nimesh Bhavsar", email = "nimeshbhavsar006@gmail.com" }
 ]
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "pygame>=2.6",
+    "plotly>=6.9.0",
+]
 
 [project.scripts]
-intro-to-python = "intro_to_python:main"
+tankbattle = "tankbattle:main"
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]
