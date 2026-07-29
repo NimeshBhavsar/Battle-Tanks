@@ -16,10 +16,10 @@ from tankbattle.models.ammunition import AMMO_BY_NAME
 from tankbattle.models.player import Player
 from tankbattle.models.tank import Tank
 from tankbattle.models.terrain import Terrain
-from tankbattle.utils.constants import EXPLOSION_FRAMES, FPS, PLAYER1_COLOR, PLAYER2_COLOR, SCREEN_WIDTH
+from tankbattle.utils.constants import EXPLOSION_FRAMES, FPS, MAX_NAME_LENGTH, PLAYER1_COLOR, PLAYER2_COLOR, SCREEN_WIDTH
 from tankbattle.utils.helpers import distance
 
-_EMPTY_INPUT = {"move": 0, "rotate": 0, "power": 0, "fire": False, "ammo": None, "restart": False}
+_EMPTY_INPUT = {"move": 0, "rotate": 0, "power": 0, "fire": False, "ammo": None, "restart": False, "name": None}
 
 
 def build_players(terrain: Terrain) -> list[Player]:
@@ -89,6 +89,8 @@ class GameServer:
 
     def _tick(self) -> None:
         with self.lock:
+            self._apply_name_changes_locked()
+
             current_player = self.turn_manager.current_player
             input_state = dict(self.pending_inputs.get(current_player.player_id, _EMPTY_INPUT))
             # One-shot fields are consumed here so a client gone quiet right after
@@ -121,6 +123,20 @@ class GameServer:
             self.explosion_frames_left -= 1
             if self.explosion_frames_left <= 0:
                 self.explosion_position = None
+
+    def _apply_name_changes_locked(self) -> None:
+        """Rename lands immediately, regardless of whose turn it is. Caller must hold self.lock."""
+        for player_id, input_state in self.pending_inputs.items():
+            new_name = input_state.get("name")
+            if not new_name:
+                continue
+            cleaned = new_name.strip()[:MAX_NAME_LENGTH]
+            if cleaned:
+                for player in self.players:
+                    if player.player_id == player_id:
+                        player.name = cleaned
+                        break
+            input_state["name"] = None
 
     def _apply_input(self, current_tank: Tank, input_state: dict) -> None:
         move_dir = input_state.get("move", 0)
@@ -211,7 +227,11 @@ class GameServer:
                 for p in self.players
             ],
             "current_player_id": self.turn_manager.current_player.player_id,
-            "projectile": {"position": list(self.active_projectile.position)} if self.active_projectile else None,
+            "projectile": (
+                {"position": list(self.active_projectile.position), "weight": self.active_projectile.weight}
+                if self.active_projectile
+                else None
+            ),
             "explosion": list(self.explosion_position) if self.explosion_position else None,
             "game_over_text": self.game_over_text,
         }

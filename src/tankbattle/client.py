@@ -17,11 +17,12 @@ from tankbattle.models.player import Player
 from tankbattle.models.projectile import Projectile
 from tankbattle.models.tank import Tank
 from tankbattle.models.terrain import Terrain
-from tankbattle.ui import game_screen, hud
+from tankbattle.ui import game_screen, hud, menu
 from tankbattle.ui import sound as sfx
 from tankbattle.utils.constants import (
     EXPLOSION_FRAMES,
     FPS,
+    MAX_NAME_LENGTH,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     SKY_COLOR,
@@ -49,6 +50,10 @@ class GameClient:
         self._had_projectile = False
         self._explosion_last_pos: tuple[float, float] | None = None
         self._explosion_elapsed = 0
+
+        self.menu_open = False
+        self.editing_name = False
+        self.name_buffer = ""
 
     def connect(self) -> None:
         self.sock = socket.create_connection((self.host, self.port))
@@ -105,11 +110,40 @@ class GameClient:
             fire = False
             ammo = None
             restart = False
+            name_to_send = None
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
+                elif event.type != pygame.KEYDOWN:
+                    continue
+                elif self.editing_name:
+                    if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        candidate = self.name_buffer.strip()
+                        if candidate:
+                            name_to_send = candidate
+                        self.editing_name = False
+                        self.menu_open = False
+                    elif event.key == pygame.K_ESCAPE:
+                        self.editing_name = False  # cancel, stay in the menu
+                    elif event.key == pygame.K_BACKSPACE:
+                        self.name_buffer = self.name_buffer[:-1]
+                    elif event.unicode.isprintable() and len(self.name_buffer) < MAX_NAME_LENGTH:
+                        self.name_buffer += event.unicode
+                elif self.menu_open:
+                    if event.key == pygame.K_ESCAPE:
+                        self.menu_open = False
+                    elif event.key == pygame.K_n:
+                        self.editing_name = True
+                        current_name = next((p.name for p in self.players if p.player_id == self.player_id), f"Player {self.player_id}")
+                        self.name_buffer = current_name
+                    elif event.key == pygame.K_r:
+                        restart = True
+                        self.menu_open = False
+                else:
+                    if event.key == pygame.K_ESCAPE:
+                        self.menu_open = True
+                    elif event.key == pygame.K_SPACE:
                         fire = True
                     elif event.key == pygame.K_1:
                         ammo = "Light"
@@ -117,18 +151,22 @@ class GameClient:
                         ammo = "Medium"
                     elif event.key == pygame.K_3:
                         ammo = "Heavy"
-                    elif event.key == pygame.K_r:
-                        restart = True
 
-            keys = pygame.key.get_pressed()
-            move = -1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0
-            rotate = 1 if (keys[pygame.K_UP] or keys[pygame.K_w]) else -1 if (keys[pygame.K_DOWN] or keys[pygame.K_s]) else 0
-            power_dir = 1 if keys[pygame.K_e] else -1 if keys[pygame.K_q] else 0
+            if self.menu_open:
+                move = rotate = power_dir = 0
+            else:
+                keys = pygame.key.get_pressed()
+                move = -1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0
+                rotate = 1 if (keys[pygame.K_UP] or keys[pygame.K_w]) else -1 if (keys[pygame.K_DOWN] or keys[pygame.K_s]) else 0
+                power_dir = 1 if keys[pygame.K_e] else -1 if keys[pygame.K_q] else 0
 
             try:
                 network.send_message(
                     self.sock,
-                    {"move": move, "rotate": rotate, "power": power_dir, "fire": fire, "ammo": ammo, "restart": restart},
+                    {
+                        "move": move, "rotate": rotate, "power": power_dir,
+                        "fire": fire, "ammo": ammo, "restart": restart, "name": name_to_send,
+                    },
                 )
             except OSError:
                 running = False
@@ -136,6 +174,8 @@ class GameClient:
 
             with self.lock:
                 state = self.latest_state
+
+            game_over_text = None
 
             if state is None:
                 screen.fill(SKY_COLOR)
@@ -150,7 +190,8 @@ class GameClient:
 
                 projectile = None
                 if has_projectile_now:
-                    projectile = Projectile(tuple(state["projectile"]["position"]), (0.0, 0.0), 0, 0, 0)
+                    proj_data = state["projectile"]
+                    projectile = Projectile(tuple(proj_data["position"]), (0.0, 0.0), proj_data.get("weight", 1), 0, 0)
 
                 explosion = tuple(state["explosion"]) if state.get("explosion") else None
                 if explosion is None:
@@ -168,7 +209,7 @@ class GameClient:
 
                 trajectory = None
                 is_my_turn = self.turn_manager.current_player.player_id == self.player_id
-                if game_over_text is None and projectile is None and is_my_turn:
+                if game_over_text is None and projectile is None and is_my_turn and not self.menu_open:
                     full_trajectory = self.tanks_by_id[self.player_id].preview_trajectory(self.terrain)
                     trajectory = full_trajectory[: max(1, int(len(full_trajectory) * TRAJECTORY_VISIBLE_FRACTION))]
 
@@ -177,6 +218,13 @@ class GameClient:
                     projectile=projectile, explosion=explosion, explosion_progress=explosion_progress,
                     game_over_text=game_over_text, big_font=big_font,
                     trajectory=trajectory,
+                )
+
+            if self.menu_open or self.editing_name:
+                menu.draw(
+                    screen, font, big_font,
+                    editing_name=self.editing_name, name_buffer=self.name_buffer,
+                    show_restart=game_over_text is not None,
                 )
 
             pygame.display.flip()

@@ -36,7 +36,8 @@ TANK_POWER_MAX = 100.0
 # Projectile physics (Phase 3)
 LAUNCH_POWER_SCALE = 0.15  # tank.power percent -> px/frame launch speed
 AMMO_WEIGHT_GRAVITY_SCALE = 0.05  # ammo.weight -> gravity contribution
-PROJECTILE_RADIUS = 4
+PROJECTILE_RADIUS_MIN = 3
+PROJECTILE_RADIUS_PER_WEIGHT = 1.2  # heavier ammo draws (and hits) as a bigger ball
 PROJECTILE_COLOR = (20, 20, 20)
 EXPLOSION_COLOR = (255, 140, 0)
 EXPLOSION_CORE_COLOR = (255, 245, 180)
@@ -57,3 +58,8 @@ BAR_GAP = 4
 BAR_BG_COLOR = (40, 40, 40)
 HP_BAR_COLOR = (60, 200, 60)
 FUEL_BAR_COLOR = (90, 150, 230)
+
+# Menu / name editing
+MAX_NAME_LENGTH = 16
+MENU_BG_COLOR = (0, 0, 0)
+MENU_HIGHLIGHT_COLOR = (255, 230, 0)

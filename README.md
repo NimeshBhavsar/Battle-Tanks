@@ -28,7 +28,12 @@ the full design and development milestones.
 
 While aiming, a dotted yellow line previews the shell's arc for the current angle,
 power, and ammo, updating live as you adjust either — though it only traces the first
-60% of the arc, so landing a shot still takes some judgment.
+60% of the arc, so landing a shot still takes some judgment. Shell size (and hit size)
+scales with ammo weight — Heavy rounds draw and hit as a noticeably bigger ball than
+Light ones.
+
+Press `Esc` any time to open the menu, where you can rename yourself and — once a
+match has ended — restart with fresh terrain.
 
 ## Running
 
@@ -51,6 +56,12 @@ Controls (apply on your turn):
 - `E`/`Q` — increase/decrease firing power
 - `1`/`2`/`3` — select Light/Medium/Heavy shell
 - `Space` — fire (spends the turn)
-- `R` — after a match ends, start a fresh one (new random terrain, full health)
+- `Esc` — open/close the menu
+
+In the menu:
+
+- `N` — edit your name (type, `Backspace` to correct, `Enter` to confirm, `Esc` to cancel)
+- `R` — once a match has ended, restart with fresh terrain and full health
+- `Esc` — close the menu
 
 Close a window or press Ctrl+C on the server to quit.

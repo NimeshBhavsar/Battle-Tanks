@@ -46,7 +46,7 @@ def render(
     hud.draw_scoreboard(surface, font, players)
     if game_over_text and big_font is not None:
         hud.draw_message(surface, big_font, game_over_text)
-        hud.draw_message(surface, font, "Press R to play again", y_offset=60)
+        hud.draw_message(surface, font, "Press Esc for the menu to restart", y_offset=60)
     else:
         hud.draw_turn_indicator(surface, font, turn_manager)
 
