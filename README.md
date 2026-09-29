@@ -194,6 +194,8 @@ src/tankbattle/
 assets/                    art/audio folders (currently empty placeholders -
                             sound effects are synthesized in code instead)
 
+tests/                     pytest suite (conftest.py has the shared fixtures)
+
 docs/                      FEATURES.md (gameplay guide), screenshots/, a sample saved
                             match, and make_screenshots.py
 
@@ -253,12 +255,26 @@ Where each topic actually shows up in this codebase:
 ## Development notes
 
 Code style is checked with [ruff](https://astral.sh/ruff) (configured in
-`pyproject.toml`):
+`pyproject.toml`), and the game logic is covered by a [pytest](https://pytest.org) suite
+in [tests/](tests/) (no display, network or audio device needed):
 
 ```sh
-uvx ruff check src
+uv run pytest                 # 218 tests, a few seconds
+uvx ruff check src tests docs
 uvx ruff format --check src
 ```
+
+The tests cover the pure game rules (physics, damage, collisions, terrain craters, tank
+movement, turn order), the server logic driven without any sockets (fuel cans, impacts,
+game over, restart, renaming, the one-time chart broadcast), the network framing, the
+statistics and chart code, the visual effects, and the client's damage-popup logic.
+
+**A bug found by the tests, and fixed:** while writing the server tests, the test
+`test_cannot_fire_after_moving` failed. If a player released the move key and pressed
+`Space` in the same frame, the server correctly ended their turn but then still let their
+tank fire, so a shell was launched during the *opponent's* turn. The fix (in
+`_apply_input` in [server.py](src/tankbattle/server.py)) ignores the rest of that input
+once the turn has passed, and the test now guards against it coming back.
 
 The server and client can each be exercised without a display: `server.py` never calls
 into pygame's rendering/audio subsystems, and both were developed against headless

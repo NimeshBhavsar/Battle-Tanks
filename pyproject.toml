@@ -25,6 +25,18 @@ ignore = [
     "D107",  # the class docstring documents __init__
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]  # test names describe themselves
+"docs/*" = ["D", "E402"]  # the screenshot script sets env vars before importing pygame
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

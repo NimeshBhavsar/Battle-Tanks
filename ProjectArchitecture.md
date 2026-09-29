@@ -67,6 +67,8 @@ Battle-Tanks/
         make_screenshots.py
         sample_match.json / sample_match.png / sample_stats_draw.png
 
+    tests/                    pytest suite: rules, server logic (no sockets), network, stats, effects
+
     match_stats/              created at run time by the server (git-ignored)
 
     src/tankbattle/
@@ -825,6 +827,11 @@ Extra: live trajectory preview of the aim (`v5.1`, 5b5f4ed)
 * **Phase 10 - Match statistics** (`v10`, 7b53e8e): per-shot JSON log and a matplotlib
   chart shown on the end screen, with a sample in `docs/`.
 * **Documentation**: [docs/FEATURES.md](docs/FEATURES.md) and generated screenshots.
+* **Automated tests**: a pytest suite in `tests/`. Because the server is a plain class
+  with no rendering, its logic is tested directly (no sockets or display). Writing the
+  tests found a real bug: releasing the move key and pressing fire in the same frame
+  ended the turn but still let the previous player fire; the server now ignores the rest
+  of that input once the turn has passed.
 
 ## Design Principles
 

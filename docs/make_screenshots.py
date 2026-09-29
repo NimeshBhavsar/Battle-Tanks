@@ -24,7 +24,13 @@ from tankbattle.models.terrain import Terrain  # noqa: E402
 from tankbattle.server import GameServer, build_players  # noqa: E402
 from tankbattle.ui import game_screen, menu, report_view  # noqa: E402
 from tankbattle.ui.effects import Effects  # noqa: E402
-from tankbattle.utils.constants import SCREEN_HEIGHT, SCREEN_WIDTH, SKY_COLOR, TRAJECTORY_VISIBLE_FRACTION, WHITE  # noqa: E402
+from tankbattle.utils.constants import (  # noqa: E402
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH,
+    SKY_COLOR,
+    TRAJECTORY_VISIBLE_FRACTION,
+    WHITE,
+)
 
 DOCS = pathlib.Path(__file__).resolve().parent
 OUT = DOCS / "screenshots"
@@ -92,7 +98,12 @@ for column, (key, shell) in enumerate((("1", LightShell()), ("2", MediumShell())
     cx = SCREEN_WIDTH * (column * 2 + 1) // 6
     Projectile((cx, 120), (0, 0), shell.weight, shell.damage, shell.blast_radius).draw(panel)
     pygame.draw.circle(panel, (255, 140, 0), (cx, 120), int(shell.blast_radius), width=2)  # blast radius
-    lines = [f"[{key}] {shell.name}", f"damage {shell.damage}", f"blast radius {shell.blast_radius}", f"weight {shell.weight}"]
+    lines = [
+        f"[{key}] {shell.name}",
+        f"damage {shell.damage}",
+        f"blast radius {shell.blast_radius}",
+        f"weight {shell.weight}",
+    ]
     for row, line in enumerate(lines):
         text = font.render(line, True, WHITE)
         panel.blit(text, text.get_rect(midtop=(cx, 185 + row * 26)))

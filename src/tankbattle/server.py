@@ -182,6 +182,7 @@ class GameServer:
             self._end_turn()
             self.acted_this_turn = False
             self.was_moving = False
+            return  # the turn now belongs to the other player; ignore the rest of this input (e.g. a fire press)
 
         rotate_dir = input_state.get("rotate", 0)
         if rotate_dir != 0:
