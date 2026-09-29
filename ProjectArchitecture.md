@@ -615,9 +615,7 @@ Repeat
 
 ---
 
-# Suggested Development Milestones
-
-Rather than trying to build everything at once, implement features in this order:
+#  Development Milestones
 
 ### Phase 1: Core
 
@@ -663,7 +661,6 @@ Rather than trying to build everything at once, implement features in this order
 * Sound effects
 * Health bars and HUD improvements
 * Victory screen and restart option
-* Optional wind, fuel limits, or power-ups
 
 ## Design Principles
 
