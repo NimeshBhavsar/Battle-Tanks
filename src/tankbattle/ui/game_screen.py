@@ -8,7 +8,10 @@ from tankbattle.models.projectile import Projectile
 from tankbattle.models.tank import Tank
 from tankbattle.models.terrain import Terrain
 from tankbattle.ui import hud
+from tankbattle.ui.effects import Effects
 from tankbattle.utils.constants import (
+    BARREL_COLOR,
+    BARREL_THICKNESS,
     BLACK,
     DAMAGE_POPUP_COLOR,
     DAMAGE_POPUP_RISE,
@@ -41,6 +44,7 @@ def render(
     trajectory: list[tuple[float, float]] | None = None,
     fuel_pickups: list[tuple[float, float]] | None = None,
     damage_popups: list[tuple[int, int, float]] | None = None,
+    effects: Effects | None = None,
 ) -> None:
     """Draw one complete frame onto the surface."""
     surface.fill(SKY_COLOR)
@@ -49,11 +53,16 @@ def render(
         _draw_fuel_pickup(surface, pickup)
     for player in players:
         player.tank.draw(surface)
+        flash = effects.flash_progress(player.player_id) if effects else None
+        if flash is not None:
+            _draw_hit_flash(surface, player.tank, flash)
     if trajectory:
         for point in trajectory:
             pygame.draw.circle(surface, TRAJECTORY_DOT_COLOR, (int(point[0]), int(point[1])), TRAJECTORY_DOT_RADIUS)
     if projectile is not None:
         projectile.draw(surface)
+    if effects:
+        effects.draw_particles(surface)
     if explosion is not None:
         _draw_explosion(surface, explosion, explosion_progress)
     tanks_by_id = {player.player_id: player.tank for player in players}
@@ -85,6 +94,17 @@ def _draw_damage_popup(
     x, ground_y = tank.position
     bottom = ground_y - TANK_HEIGHT - 24 - DAMAGE_POPUP_RISE * progress  # clear of the barrel and HUD text
     surface.blit(text_surface, text_surface.get_rect(midbottom=(int(x), int(bottom))))
+
+
+def _draw_hit_flash(surface: pygame.Surface, tank: Tank, progress: float) -> None:
+    """Paint the tank white, fading back to its normal colors as progress goes from 0 to 1."""
+    strength = 1 - clamp(progress, 0.0, 1.0)
+    body = tank.get_rect()
+    overlay = pygame.Surface(body.size, pygame.SRCALPHA)
+    overlay.fill((255, 255, 255, int(220 * strength)))
+    barrel_color = tuple(int(c + (255 - c) * strength) for c in BARREL_COLOR)
+    pygame.draw.line(surface, barrel_color, body.center, tank.barrel_tip(), BARREL_THICKNESS)
+    surface.blit(overlay, body.topleft)
 
 
 def _draw_fuel_pickup(surface: pygame.Surface, position: tuple[float, float]) -> None:

@@ -19,8 +19,11 @@ from tankbattle.models.tank import Tank
 from tankbattle.models.terrain import Terrain
 from tankbattle.ui import game_screen, hud, menu
 from tankbattle.ui import sound as sfx
+from tankbattle.ui.effects import Effects
 from tankbattle.utils.constants import (
+    BLACK,
     DAMAGE_POPUP_FRAMES,
+    DEFAULT_EXPLOSION_RADIUS,
     EXPLOSION_FRAMES,
     FPS,
     MAX_NAME_LENGTH,
@@ -55,6 +58,7 @@ class GameClient:
         self._explosion_elapsed = 0
         self._last_damage_id: int | None = None  # None until the first state, so a late joiner skips old hits
         self._damage_popups: list[dict] = []
+        self.effects = Effects()
 
         self.menu_open = False
         self.editing_name = False
@@ -117,6 +121,7 @@ class GameClient:
             for event in events:
                 if event["id"] > self._last_damage_id:
                     self._damage_popups.append({"player_id": event["player_id"], "amount": event["amount"], "age": 0})
+                    self.effects.add_hit_flash(event["player_id"])
         self._last_damage_id = max(newest, self._last_damage_id or 0)
 
     def _run_render_loop(self) -> None:
@@ -127,6 +132,7 @@ class GameClient:
         font = pygame.font.SysFont(None, 28)
         big_font = pygame.font.SysFont(None, 64)
         self.sounds = sfx.load_sounds()
+        frame = pygame.Surface(screen.get_size())  # the world is drawn here, then blitted (shaken) onto the window
 
         running = True
         while running:
@@ -225,6 +231,7 @@ class GameClient:
                 if has_projectile_now:
                     proj_data = state["projectile"]
                     projectile = Projectile(tuple(proj_data["position"]), (0.0, 0.0), proj_data.get("weight", 1), 0, 0)
+                    self.effects.add_smoke_trail(projectile.position, projectile.weight)
 
                 explosion = tuple(state["explosion"]) if state.get("explosion") else None
                 if explosion is None:
@@ -234,6 +241,7 @@ class GameClient:
                     self._explosion_last_pos = explosion
                     self._explosion_elapsed = 0
                     sfx.play(self.sounds, "explosion")
+                    self.effects.add_explosion(explosion, state.get("explosion_radius", DEFAULT_EXPLOSION_RADIUS))
                 else:
                     self._explosion_elapsed += 1
                 explosion_progress = self._explosion_elapsed / EXPLOSION_FRAMES
@@ -241,6 +249,7 @@ class GameClient:
                 game_over_text = state.get("game_over_text")
 
                 self._update_damage_popups(state.get("damage_events", []))
+                self.effects.update()
 
                 trajectory = None
                 is_my_turn = self.turn_manager.current_player.player_id == self.player_id
@@ -249,7 +258,7 @@ class GameClient:
                     trajectory = full_trajectory[: max(1, int(len(full_trajectory) * TRAJECTORY_VISIBLE_FRACTION))]
 
                 game_screen.render(
-                    screen,
+                    frame,
                     self.terrain,
                     self.players,
                     self.turn_manager,
@@ -265,7 +274,10 @@ class GameClient:
                         (popup["player_id"], popup["amount"], popup["age"] / DAMAGE_POPUP_FRAMES)
                         for popup in self._damage_popups
                     ],
+                    effects=self.effects,
                 )
+                screen.fill(BLACK)  # only visible along the edges while the frame is shaken
+                screen.blit(frame, self.effects.shake_offset())
 
             if self.menu_open or self.editing_name:
                 menu.draw(

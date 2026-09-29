@@ -63,6 +63,16 @@ FUEL_PICKUP_HEIGHT = 18
 FUEL_PICKUP_COLOR = (210, 40, 40)
 FUEL_PICKUP_CAP_COLOR = (240, 200, 40)
 
+# Visual effects (client-side only)
+SHAKE_PER_BLAST_RADIUS = 0.15  # shake strength in px per px of blast radius
+SHAKE_FRAMES = 14
+HIT_FLASH_FRAMES = 12
+DEFAULT_EXPLOSION_RADIUS = 30  # used if the server doesn't say how big an explosion was
+MAX_PARTICLES = 400
+SMOKE_TRAIL_COLOR = (200, 200, 200)
+EXPLOSION_SMOKE_COLOR = (90, 90, 90)
+DEBRIS_COLORS = (GROUND_COLOR, GROUND_OUTLINE_COLOR, (140, 100, 55))
+
 # Floating damage numbers
 DAMAGE_POPUP_COLOR = (230, 30, 30)
 DAMAGE_POPUP_FRAMES = 75  # how long the "-15 HP" text stays up

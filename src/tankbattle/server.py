@@ -63,6 +63,7 @@ class GameServer:
         self.active_projectile = None
         self.explosion_position: tuple[float, float] | None = None
         self.explosion_frames_left = 0
+        self.explosion_radius = 0.0
         self.game_over_text: str | None = None
         self.fuel_pickups: list[float] = []  # x positions; y is derived from the terrain
         for _ in range(FUEL_PICKUP_START):
@@ -202,6 +203,7 @@ class GameServer:
         blast_radius = self.active_projectile.blast_radius
         max_damage = self.active_projectile.damage
         self.explosion_position = self.active_projectile.explode()
+        self.explosion_radius = blast_radius
         self.explosion_frames_left = EXPLOSION_FRAMES
         self.active_projectile = None
 
@@ -291,6 +293,7 @@ class GameServer:
             ),
             "explosion": list(self.explosion_position) if self.explosion_position else None,
             "fuel_pickups": [[x, self.terrain.height_at(x)] for x in self.fuel_pickups],
+            "explosion_radius": self.explosion_radius,
             "damage_events": list(self.damage_events),
             "game_over_text": self.game_over_text,
         }
