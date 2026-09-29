@@ -6,29 +6,62 @@ connect over TCP sockets, aim across procedurally generated, destructible terrai
 trade shells until one tank is left standing.
 
 The project is built as an authoritative-server / thin-client system: `server.py` owns
-the entire simulation (physics, collisions, damage, turn order) and runs headless;
+the entire simulation (physics, collisions, damage, turn order, fuel cans, match
+statistics) and runs headless;
 `client.py` only renders whatever the server broadcasts and sends the local player's
 input. This mirrors how real multiplayer games are structured, and is the reason the
 project is split across dedicated `engine/`, `models/`, `ui/`, and networking modules
 rather than one script.
 
-See [ProjectArchitecture.md](ProjectArchitecture.md) for the original design document
-and the phase-by-phase build plan this project followed.
+![Gameplay](docs/screenshots/01_gameplay.png)
+
+| | | |
+| --- | --- | --- |
+| ![Impact effects](docs/screenshots/04_impact_effects.png) | ![Crater](docs/screenshots/06_terrain_after.png) | ![Fuel can](docs/screenshots/07_fuel_pickup.png) |
+| Hits: debris, smoke, flash, damage number | Destructible terrain | Fuel cans to refuel |
+
+## Documentation
+
+| Document | What it covers |
+| --- | --- |
+| **[docs/FEATURES.md](docs/FEATURES.md)** | **The full gameplay guide, with screenshots:** turn rules, aiming, ammo stats, physics, damage formula, terrain, fuel cans, effects, menu, match statistics, networking, and where to tune each number |
+| [ProjectArchitecture.md](ProjectArchitecture.md) | The original design document and the phase-by-phase build plan |
+| [docs/sample_match.json](docs/sample_match.json), [docs/sample_match.png](docs/sample_match.png) | An example saved match and its chart |
+| [docs/make_screenshots.py](docs/make_screenshots.py) | Regenerates the images in `docs/screenshots/` |
 
 ## Features
 
-- Turn-based movement, aiming (angle/power), and firing, with a live trajectory preview
-- Projectile physics where shell weight (Light/Medium/Heavy) changes arc, drop speed,
-  and even the shell's on-screen (and hit-detection) size
-- Distance-based explosion damage and terrain deformation (craters), each carved into a
-  per-column height map
-- A real client/server network architecture (length-prefixed JSON over TCP), not just a
-  shared-process hot-seat mode
-- Fuel cans that spawn at random spots on the map - drive over one to refill your tank
-- Match statistics: every shot is logged to JSON, and a matplotlib chart of the match is
-  saved as a PNG and shown on the end screen
-- Labelled HP/fuel bars, animated explosions, synthesized sound effects (no external audio
-  assets needed), and a menu for renaming yourself and restarting a finished match
+Each item links to its section in the [feature guide](docs/FEATURES.md), which has the
+details, exact numbers and screenshots.
+
+- **[Turn-based play](docs/FEATURES.md#1-turn-structure)** - on your turn, either move or
+  fire; adjust angle, power and ammo freely first
+- **[Live trajectory preview](docs/FEATURES.md#2-aiming-and-the-trajectory-preview)** -
+  a dotted arc that shows the first 60 % of your shot
+- **[Three shell types](docs/FEATURES.md#3-ammunition)** - Light, Medium and Heavy differ
+  in damage, blast size and weight, and even the shell's on-screen (and hit) size
+- **[Projectile physics](docs/FEATURES.md#4-projectile-physics)** - gravity is scaled by
+  shell weight, so heavy shells fly flatter and drop faster
+- **[Distance-based damage](docs/FEATURES.md#5-hits-and-damage)** - full damage on a direct
+  hit, falling off to nothing at the edge of the blast; floating "-N HP" numbers and a
+  white hit flash show what landed
+- **[Destructible terrain](docs/FEATURES.md#6-destructible-terrain)** - every explosion
+  carves a crater into the per-column height map
+- **[Fuel and fuel cans](docs/FEATURES.md#7-fuel-and-fuel-cans)** - moving burns fuel;
+  cans spawn at random spots on the map, and driving over one refuels your tank
+- **[Labelled HUD](docs/FEATURES.md#8-hud)** - HP and fuel bars for both players, plus the
+  current angle, power and ammo
+- **[Visual effects](docs/FEATURES.md#9-visual-effects)** - smoke trails, debris and smoke
+  on impact, and screen shake scaled to the blast
+- **[Sound](docs/FEATURES.md#10-sound)** - effects are synthesized in code, so no audio
+  assets are needed
+- **[Menu, renaming and restart](docs/FEATURES.md#11-menu-renaming-and-restarting)** -
+  change your name mid-game and restart a finished match
+- **[Match statistics](docs/FEATURES.md#12-match-statistics-and-end-screen)** - every shot
+  is logged to JSON, and a matplotlib chart of the match is saved as a PNG and shown on
+  the end screen
+- **[Client/server networking](docs/FEATURES.md#13-networking)** - length-prefixed JSON
+  over TCP with an authoritative server, playable across a LAN
 
 ## Requirements
 
@@ -41,13 +74,14 @@ and the phase-by-phase build plan this project followed.
 
 ```sh
 git clone https://github.com/NimeshBhavsar/Battle-Tanks.git
-cd "Intro to Python"
+cd Battle-Tanks
 uv pip install -e .
 ```
 
 This installs the `tankbattle` package (declared via `pyproject.toml`'s
-`[build-system]`, using `uv_build`) in editable mode, along with its one runtime
-dependency, `pygame`.
+`[build-system]`, using `uv_build`) in editable mode, along with its two runtime
+dependencies: `pygame` (the game itself) and `matplotlib` (the end-of-match statistics
+chart).
 
 ## Running
 
@@ -88,7 +122,9 @@ shell = tank.fire()
 
 The server records every shot (who fired, ammo, angle, power, damage dealt and taken).
 When a match ends it writes two files into a `match_stats/` folder next to where the
-server was started, and shows the chart on both players' end screens:
+server was started (the folder is git-ignored), and shows the chart on both players' end
+screens. See the [feature guide](docs/FEATURES.md#12-match-statistics-and-end-screen) for
+the JSON format and a real end-screen capture.
 
 - `match_<date>_<time>.json` - the full shot log
 - `match_<date>_<time>.png` - a three-panel matplotlib chart: cumulative damage over
@@ -127,6 +163,9 @@ Apply on your turn:
 
 In the menu: `N` edits your name, `R` restarts once a match has ended, `Esc` closes it.
 
+For the rules behind these controls (what a turn allows, angle and power ranges, how
+fuel is spent) see the [feature guide](docs/FEATURES.md#1-turn-structure).
+
 ## Project structure
 
 ```text
@@ -154,6 +193,12 @@ src/tankbattle/
 
 assets/                    art/audio folders (currently empty placeholders -
                             sound effects are synthesized in code instead)
+
+docs/                      FEATURES.md (gameplay guide), screenshots/, a sample saved
+                            match, and make_screenshots.py
+
+match_stats/               created by the server at run time: each match's JSON + PNG
+                            (git-ignored)
 ```
 
 ## Course concepts
@@ -198,7 +243,7 @@ Where each topic actually shows up in this codebase:
   [`__main__.py`](src/tankbattle/__main__.py) for `python -m tankbattle`.
 
 - **Version control** - the commit history shows incremental, meaningful progress
-  (`v5.0` terrain deformation through `v8` ammo-scaled ball size / menu / restart).
+  (`v5.0` terrain deformation through `v10` end-of-match statistics).
 
 - **Data analysis & visualization** - [stats.py](src/tankbattle/stats.py) records the
   shot log and computes per-player summaries; [report.py](src/tankbattle/report.py) plots
@@ -218,11 +263,20 @@ uvx ruff format --check src
 The server and client can each be exercised without a display: `server.py` never calls
 into pygame's rendering/audio subsystems, and both were developed against headless
 (`SDL_VIDEODRIVER=dummy`) smoke tests plus real two-window playtests before each
-feature was considered done.
+feature was considered done. The chart code uses matplotlib's `Figure` class directly
+(not `pyplot`), so it also runs headless and on a background thread.
+
+The screenshots in the docs are regenerated with:
+
+```sh
+uv run python docs/make_screenshots.py
+```
 
 ## Status
 
 All phases from [ProjectArchitecture.md](ProjectArchitecture.md)'s milestone list are
 implemented: window/terrain/turn setup, tank controls, projectile physics, combat,
 terrain deformation, client/server networking, and polish (animation, sound, HUD,
-restart flow).
+restart flow). Features added after that plan - fuel cans, floating damage numbers,
+smoke/debris/screen-shake effects, and match statistics with a matplotlib chart - are
+described in the [feature guide](docs/FEATURES.md).

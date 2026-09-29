@@ -59,7 +59,8 @@ def _plot_damage_over_time(ax, match: dict) -> None:
 def _plot_accuracy(ax, match: dict) -> None:
     ax.set_title("Accuracy")
     ax.set_ylabel("Shots that hit (%)")
-    ax.set_ylim(0, 105)
+    ax.set_ylim(0, 118)  # headroom so the "hits/shots" label above a 100% bar isn't clipped
+    ax.set_yticks(range(0, 101, 20))
     summary = summarize(match)
     for x, (key, info) in enumerate(match["players"].items()):
         stats = summary[int(key)]
