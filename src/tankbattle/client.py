@@ -20,6 +20,7 @@ from tankbattle.models.terrain import Terrain
 from tankbattle.ui import game_screen, hud, menu
 from tankbattle.ui import sound as sfx
 from tankbattle.utils.constants import (
+    DAMAGE_POPUP_FRAMES,
     EXPLOSION_FRAMES,
     FPS,
     MAX_NAME_LENGTH,
@@ -52,6 +53,8 @@ class GameClient:
         self._had_projectile = False
         self._explosion_last_pos: tuple[float, float] | None = None
         self._explosion_elapsed = 0
+        self._last_damage_id: int | None = None  # None until the first state, so a late joiner skips old hits
+        self._damage_popups: list[dict] = []
 
         self.menu_open = False
         self.editing_name = False
@@ -102,6 +105,19 @@ class GameClient:
 
         if self.turn_manager is not None:
             self.turn_manager.set_current(state["current_player_id"])
+
+    def _update_damage_popups(self, events: list[dict]) -> None:
+        """Age the floating damage numbers and start one for every hit we haven't shown yet."""
+        for popup in self._damage_popups:
+            popup["age"] += 1
+        self._damage_popups = [p for p in self._damage_popups if p["age"] < DAMAGE_POPUP_FRAMES]
+
+        newest = max((e["id"] for e in events), default=0)
+        if self._last_damage_id is not None:
+            for event in events:
+                if event["id"] > self._last_damage_id:
+                    self._damage_popups.append({"player_id": event["player_id"], "amount": event["amount"], "age": 0})
+        self._last_damage_id = max(newest, self._last_damage_id or 0)
 
     def _run_render_loop(self) -> None:
         pygame.init()
@@ -224,6 +240,8 @@ class GameClient:
 
                 game_over_text = state.get("game_over_text")
 
+                self._update_damage_popups(state.get("damage_events", []))
+
                 trajectory = None
                 is_my_turn = self.turn_manager.current_player.player_id == self.player_id
                 if game_over_text is None and projectile is None and is_my_turn and not self.menu_open:
@@ -243,6 +261,10 @@ class GameClient:
                     big_font=big_font,
                     trajectory=trajectory,
                     fuel_pickups=[tuple(p) for p in state.get("fuel_pickups", [])],
+                    damage_popups=[
+                        (popup["player_id"], popup["amount"], popup["age"] / DAMAGE_POPUP_FRAMES)
+                        for popup in self._damage_popups
+                    ],
                 )
 
             if self.menu_open or self.editing_name:

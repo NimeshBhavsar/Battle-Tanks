@@ -33,7 +33,7 @@ from tankbattle.utils.constants import (
     SCREEN_WIDTH,
     TANK_WIDTH,
 )
-from tankbattle.utils.helpers import clamp, distance
+from tankbattle.utils.helpers import clamp
 
 _EMPTY_INPUT = {"move": 0, "rotate": 0, "power": 0, "fire": False, "ammo": None, "restart": False, "name": None}
 
@@ -67,6 +67,9 @@ class GameServer:
         self.fuel_pickups: list[float] = []  # x positions; y is derived from the terrain
         for _ in range(FUEL_PICKUP_START):
             self._spawn_fuel_pickup()
+        # Recent hits, each with a unique increasing id so clients can tell which ones they've already shown.
+        self.damage_events: list[dict] = []
+        self._next_damage_id = 1
 
         self.lock = threading.Lock()
         self.client_sockets: dict[int, socket.socket] = {}
@@ -203,10 +206,15 @@ class GameServer:
         self.active_projectile = None
 
         for player in self.players:
-            hit_distance = distance(player.tank.position, self.explosion_position)
+            hit_distance = damage.distance_to_tank(self.explosion_position, player.tank)
             amount = damage.calculate_damage(hit_distance, blast_radius, max_damage)
             if amount > 0:
                 player.tank.take_damage(amount)
+                self.damage_events.append(
+                    {"id": self._next_damage_id, "player_id": player.player_id, "amount": max(1, round(amount))}
+                )
+                self._next_damage_id += 1
+        del self.damage_events[:-10]
 
         terrain_engine.carve_crater(self.terrain, *self.explosion_position, blast_radius)
         for player in self.players:
@@ -283,6 +291,7 @@ class GameServer:
             ),
             "explosion": list(self.explosion_position) if self.explosion_position else None,
             "fuel_pickups": [[x, self.terrain.height_at(x)] for x in self.fuel_pickups],
+            "damage_events": list(self.damage_events),
             "game_over_text": self.game_over_text,
         }
 

@@ -63,6 +63,11 @@ FUEL_PICKUP_HEIGHT = 18
 FUEL_PICKUP_COLOR = (210, 40, 40)
 FUEL_PICKUP_CAP_COLOR = (240, 200, 40)
 
+# Floating damage numbers
+DAMAGE_POPUP_COLOR = (230, 30, 30)
+DAMAGE_POPUP_FRAMES = 75  # how long the "-15 HP" text stays up
+DAMAGE_POPUP_RISE = 30  # px it drifts upward over its lifetime
+
 # HUD scoreboard bars
 BAR_WIDTH = 140
 BAR_HEIGHT = 10

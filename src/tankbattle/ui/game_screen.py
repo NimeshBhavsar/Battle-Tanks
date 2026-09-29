@@ -5,10 +5,13 @@ import pygame
 from tankbattle.engine.turn_manager import TurnManager
 from tankbattle.models.player import Player
 from tankbattle.models.projectile import Projectile
+from tankbattle.models.tank import Tank
 from tankbattle.models.terrain import Terrain
 from tankbattle.ui import hud
 from tankbattle.utils.constants import (
     BLACK,
+    DAMAGE_POPUP_COLOR,
+    DAMAGE_POPUP_RISE,
     EXPLOSION_COLOR,
     EXPLOSION_CORE_COLOR,
     EXPLOSION_RADIUS,
@@ -17,6 +20,7 @@ from tankbattle.utils.constants import (
     FUEL_PICKUP_HEIGHT,
     FUEL_PICKUP_WIDTH,
     SKY_COLOR,
+    TANK_HEIGHT,
     TRAJECTORY_DOT_COLOR,
     TRAJECTORY_DOT_RADIUS,
 )
@@ -36,6 +40,7 @@ def render(
     big_font: pygame.font.Font | None = None,
     trajectory: list[tuple[float, float]] | None = None,
     fuel_pickups: list[tuple[float, float]] | None = None,
+    damage_popups: list[tuple[int, int, float]] | None = None,
 ) -> None:
     """Draw one complete frame onto the surface."""
     surface.fill(SKY_COLOR)
@@ -51,6 +56,9 @@ def render(
         projectile.draw(surface)
     if explosion is not None:
         _draw_explosion(surface, explosion, explosion_progress)
+    tanks_by_id = {player.player_id: player.tank for player in players}
+    for player_id, amount, progress in damage_popups or []:
+        _draw_damage_popup(surface, font, tanks_by_id[player_id], amount, progress)
 
     hud.draw_scoreboard(surface, font, players)
     if game_over_text and big_font is not None:
@@ -58,6 +66,25 @@ def render(
         hud.draw_message(surface, font, "Press Esc for the menu to restart", y_offset=60)
     else:
         hud.draw_turn_indicator(surface, font, turn_manager)
+
+
+def _draw_damage_popup(
+    surface: pygame.Surface, font: pygame.font.Font, tank: Tank, amount: int, progress: float
+) -> None:
+    """Draw "-N HP" in red above the tank, drifting upward and fading out as progress goes from 0 to 1."""
+    progress = clamp(progress, 0.0, 1.0)
+    label = f"-{amount} HP"
+    text = font.render(label, True, DAMAGE_POPUP_COLOR)
+    outline = font.render(label, True, BLACK)
+    text_surface = pygame.Surface((text.get_width() + 2, text.get_height() + 2), pygame.SRCALPHA)
+    for dx, dy in ((0, 1), (2, 1), (1, 0), (1, 2)):
+        text_surface.blit(outline, (dx, dy))
+    text_surface.blit(text, (1, 1))
+    text_surface.set_alpha(int(255 * (1 - progress**2)))
+
+    x, ground_y = tank.position
+    bottom = ground_y - TANK_HEIGHT - 24 - DAMAGE_POPUP_RISE * progress  # clear of the barrel and HUD text
+    surface.blit(text_surface, text_surface.get_rect(midbottom=(int(x), int(bottom))))
 
 
 def _draw_fuel_pickup(surface: pygame.Surface, position: tuple[float, float]) -> None:
