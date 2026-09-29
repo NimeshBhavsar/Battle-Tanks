@@ -82,6 +82,10 @@ class GameClient:
                 tank = Tank(player_id, tank_data["position"][0], tank_data["position"][1], tuple(tank_data["color"]))
                 self.tanks_by_id[player_id] = tank
                 self.players.append(Player(player_id, tank_data["name"], tank))
+            for player in self.players:
+                if player.player_id == player_id:
+                    player.name = tank_data["name"]
+                    break
             tank.position = tuple(tank_data["position"])
             tank.angle = tank_data["angle"]
             tank.power = tank_data["power"]
@@ -218,6 +222,7 @@ class GameClient:
                     projectile=projectile, explosion=explosion, explosion_progress=explosion_progress,
                     game_over_text=game_over_text, big_font=big_font,
                     trajectory=trajectory,
+                    fuel_pickups=[tuple(p) for p in state.get("fuel_pickups", [])],
                 )
 
             if self.menu_open or self.editing_name:

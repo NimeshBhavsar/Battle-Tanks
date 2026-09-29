@@ -8,9 +8,14 @@ from tankbattle.models.projectile import Projectile
 from tankbattle.models.terrain import Terrain
 from tankbattle.ui import hud
 from tankbattle.utils.constants import (
+    BLACK,
     EXPLOSION_COLOR,
     EXPLOSION_CORE_COLOR,
     EXPLOSION_RADIUS,
+    FUEL_PICKUP_CAP_COLOR,
+    FUEL_PICKUP_COLOR,
+    FUEL_PICKUP_HEIGHT,
+    FUEL_PICKUP_WIDTH,
     SKY_COLOR,
     TRAJECTORY_DOT_COLOR,
     TRAJECTORY_DOT_RADIUS,
@@ -30,9 +35,12 @@ def render(
     game_over_text: str | None = None,
     big_font: pygame.font.Font | None = None,
     trajectory: list[tuple[float, float]] | None = None,
+    fuel_pickups: list[tuple[float, float]] | None = None,
 ) -> None:
     surface.fill(SKY_COLOR)
     terrain.draw(surface)
+    for pickup in fuel_pickups or []:
+        _draw_fuel_pickup(surface, pickup)
     for player in players:
         player.tank.draw(surface)
     if trajectory:
@@ -49,6 +57,20 @@ def render(
         hud.draw_message(surface, font, "Press Esc for the menu to restart", y_offset=60)
     else:
         hud.draw_turn_indicator(surface, font, turn_manager)
+
+
+def _draw_fuel_pickup(surface: pygame.Surface, position: tuple[float, float]) -> None:
+    """A little jerrycan standing on the ground at `position`."""
+    x, y = int(position[0]), int(position[1])
+    body = pygame.Rect(0, 0, FUEL_PICKUP_WIDTH, FUEL_PICKUP_HEIGHT)
+    body.midbottom = (x, y + 2)  # sink slightly so it sits on the terrain
+    pygame.draw.rect(surface, FUEL_PICKUP_COLOR, body, border_radius=2)
+    pygame.draw.rect(surface, BLACK, body, width=1, border_radius=2)
+    cap = pygame.Rect(0, 0, 6, 4)
+    cap.midbottom = (body.centerx + 3, body.top)
+    pygame.draw.rect(surface, FUEL_PICKUP_CAP_COLOR, cap)
+    pygame.draw.rect(surface, BLACK, cap, width=1)
+    pygame.draw.line(surface, FUEL_PICKUP_CAP_COLOR, (body.left + 3, body.centery), (body.right - 3, body.centery), 2)
 
 
 def _draw_explosion(surface: pygame.Surface, position: tuple[float, float], progress: float) -> None:

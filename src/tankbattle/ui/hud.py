@@ -1,6 +1,11 @@
 """Heads-up display: a per-player HP/fuel scoreboard, plus the active player's aim."""
 
+from operator import index
+
+from operator import index
+
 import pygame
+from pygame import surface
 
 from tankbattle.engine.turn_manager import TurnManager
 from tankbattle.models.player import Player
@@ -26,9 +31,20 @@ def _draw_bar(surface: pygame.Surface, x: int, y: int, fraction: float, fill_col
         pygame.draw.rect(surface, fill_color, (x, y, fill_width, BAR_HEIGHT), border_radius=3)
     pygame.draw.rect(surface, BLACK, rect, width=1, border_radius=3)
 
+def _draw_bar_label(
+    surface: pygame.Surface, font: pygame.font.Font, label: str, x: int, y: int, on_left: bool, color: tuple[int, int, int]
+) -> None:
+    """Tag a bar with its name, placed on the side facing the screen center."""
+    text = font.render(label, True, color)
+    if on_left:
+        rect = text.get_rect(midleft=(x + BAR_WIDTH + 6, y + BAR_HEIGHT // 2))
+    else:
+        rect = text.get_rect(midright=(x - 6, y + BAR_HEIGHT // 2))
+    surface.blit(text, rect)
 
 def draw_scoreboard(surface: pygame.Surface, font: pygame.font.Font, players: list[Player]) -> None:
     """Both players' HP and fuel bars, always visible regardless of whose turn it is."""
+    label_font = pygame.font.SysFont(None, 18)
     for index, player in enumerate(players):
         tank = player.tank
         x = 12 if index == 0 else surface.get_width() - 12 - BAR_WIDTH
@@ -39,9 +55,11 @@ def draw_scoreboard(surface: pygame.Surface, font: pygame.font.Font, players: li
 
         hp_y = name_rect.bottom + 4
         _draw_bar(surface, x, hp_y, tank.health / TANK_START_HEALTH, HP_BAR_COLOR)
+        _draw_bar_label(surface, label_font, "HP", x, hp_y, index == 0, HP_BAR_COLOR)
 
         fuel_y = hp_y + BAR_HEIGHT + BAR_GAP
         _draw_bar(surface, x, fuel_y, tank.fuel / TANK_START_FUEL, FUEL_BAR_COLOR)
+        _draw_bar_label(surface, label_font, "FUEL", x, fuel_y, index == 0, FUEL_BAR_COLOR)
 
 
 def draw_turn_indicator(surface: pygame.Surface, font: pygame.font.Font, turn_manager: TurnManager) -> None:

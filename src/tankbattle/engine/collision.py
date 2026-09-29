@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from tankbattle.utils.constants import BARREL_THICKNESS
+from tankbattle.utils.constants import BARREL_THICKNESS, TANK_HITBOX_PADDING
 from tankbattle.utils.helpers import distance_to_segment
 
 if TYPE_CHECKING:
@@ -13,10 +13,11 @@ if TYPE_CHECKING:
 
 def _hits_tank(point: tuple[float, float], tank: "Tank", radius: float) -> bool:
     """Body rect (inflated by the shell's own size) plus a thin band around its barrel."""
-    hitbox = tank.get_rect().inflate(radius * 2, radius * 2)
+    grow = (radius + TANK_HITBOX_PADDING) * 2
+    hitbox = tank.get_rect().inflate(grow, grow)
     if hitbox.collidepoint(point):
         return True
-    tolerance = BARREL_THICKNESS / 2 + radius
+    tolerance = BARREL_THICKNESS / 2 + radius + TANK_HITBOX_PADDING
     return distance_to_segment(point, tank.get_rect().center, tank.barrel_tip()) <= tolerance
 
 

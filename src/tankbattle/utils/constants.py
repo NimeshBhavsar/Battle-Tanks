@@ -22,6 +22,7 @@ TANK_WIDTH = 40
 TANK_HEIGHT = 20
 BARREL_LENGTH = 28
 BARREL_THICKNESS = 4
+TANK_HITBOX_PADDING = 10  # extra px on every side of the drawn body that still counts as a hit
 
 # Tank controls (Phase 2)
 TANK_MOVE_SPEED = 3.0  # px/frame
@@ -34,7 +35,7 @@ TANK_POWER_MIN = 0.0
 TANK_POWER_MAX = 100.0
 
 # Projectile physics (Phase 3)
-LAUNCH_POWER_SCALE = 0.15  # tank.power percent -> px/frame launch speed
+LAUNCH_POWER_SCALE = 0.25  # tank.power percent -> px/frame launch speed
 AMMO_WEIGHT_GRAVITY_SCALE = 0.05  # ammo.weight -> gravity contribution
 PROJECTILE_RADIUS_MIN = 3
 PROJECTILE_RADIUS_PER_WEIGHT = 1.2  # heavier ammo draws (and hits) as a bigger ball
@@ -50,6 +51,17 @@ TRAJECTORY_DOT_RADIUS = 2
 TRAJECTORY_MAX_POINTS = 25
 TRAJECTORY_STEPS_PER_POINT = 3
 TRAJECTORY_VISIBLE_FRACTION = 0.6  # only preview the first 60% of the arc, to keep aiming a skill
+
+# Fuel pickups
+FUEL_PICKUP_MAX = 3  # most cans on the map at once
+FUEL_PICKUP_START = 2  # cans present at match start
+FUEL_PICKUP_REFILL = 40  # fuel restored per can
+FUEL_PICKUP_MIN_TANK_DISTANCE = 80  # don't spawn a can right on top of a tank
+FUEL_PICKUP_EDGE_MARGIN = 40
+FUEL_PICKUP_WIDTH = 14
+FUEL_PICKUP_HEIGHT = 18
+FUEL_PICKUP_COLOR = (210, 40, 40)
+FUEL_PICKUP_CAP_COLOR = (240, 200, 40)
 
 # HUD scoreboard bars
 BAR_WIDTH = 140

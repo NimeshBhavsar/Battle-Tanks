@@ -16,8 +16,25 @@ from tankbattle.models.ammunition import AMMO_BY_NAME
 from tankbattle.models.player import Player
 from tankbattle.models.tank import Tank
 from tankbattle.models.terrain import Terrain
-from tankbattle.utils.constants import EXPLOSION_FRAMES, FPS, MAX_NAME_LENGTH, PLAYER1_COLOR, PLAYER2_COLOR, SCREEN_WIDTH
-from tankbattle.utils.helpers import distance
+import random
+
+from tankbattle.settings import TANK_START_FUEL
+from tankbattle.utils.constants import (
+    EXPLOSION_FRAMES,
+    FPS,
+    FUEL_PICKUP_EDGE_MARGIN,
+    FUEL_PICKUP_MAX,
+    FUEL_PICKUP_MIN_TANK_DISTANCE,
+    FUEL_PICKUP_REFILL,
+    FUEL_PICKUP_START,
+    FUEL_PICKUP_WIDTH,
+    MAX_NAME_LENGTH,
+    PLAYER1_COLOR,
+    PLAYER2_COLOR,
+    SCREEN_WIDTH,
+    TANK_WIDTH,
+)
+from tankbattle.utils.helpers import clamp, distance
 
 _EMPTY_INPUT = {"move": 0, "rotate": 0, "power": 0, "fire": False, "ammo": None, "restart": False, "name": None}
 
@@ -45,6 +62,9 @@ class GameServer:
         self.explosion_position: tuple[float, float] | None = None
         self.explosion_frames_left = 0
         self.game_over_text: str | None = None
+        self.fuel_pickups: list[float] = []  # x positions; y is derived from the terrain
+        for _ in range(FUEL_PICKUP_START):
+            self._spawn_fuel_pickup()
 
         self.lock = threading.Lock()
         self.client_sockets: dict[int, socket.socket] = {}
@@ -142,10 +162,11 @@ class GameServer:
         move_dir = input_state.get("move", 0)
         if move_dir != 0 and current_tank.fuel > 0:
             current_tank.move(move_dir, self.terrain)
+            self._collect_fuel_pickups(current_tank)
             self.acted_this_turn = True
             self.was_moving = True
         elif self.was_moving and move_dir == 0 and self.acted_this_turn:
-            self.turn_manager.end_turn()
+            self._end_turn()
             self.acted_this_turn = False
             self.was_moving = False
 
@@ -193,8 +214,30 @@ class GameServer:
         if len(survivors) <= 1:
             self.game_over_text = f"{survivors[0].name} Wins!" if survivors else "Draw!"
         else:
-            self.turn_manager.end_turn()
+            self._end_turn()
             self.acted_this_turn = False
+
+    def _end_turn(self) -> None:
+        self.turn_manager.end_turn()
+        if len(self.fuel_pickups) < FUEL_PICKUP_MAX:
+            self._spawn_fuel_pickup()
+
+    def _spawn_fuel_pickup(self) -> None:
+        """Drop a can at a random x, away from tanks and other cans. Gives up quietly if the map is crowded."""
+        tank_xs = [p.tank.position[0] for p in self.players]
+        for _ in range(20):
+            x = random.uniform(FUEL_PICKUP_EDGE_MARGIN, self.terrain.width - FUEL_PICKUP_EDGE_MARGIN)
+            if all(abs(x - other) >= FUEL_PICKUP_MIN_TANK_DISTANCE for other in tank_xs + self.fuel_pickups):
+                self.fuel_pickups.append(x)
+                return
+
+    def _collect_fuel_pickups(self, tank: Tank) -> None:
+        reach = TANK_WIDTH / 2 + FUEL_PICKUP_WIDTH / 2
+        remaining = [x for x in self.fuel_pickups if abs(x - tank.position[0]) > reach]
+        collected = len(self.fuel_pickups) - len(remaining)
+        if collected:
+            self.fuel_pickups = remaining
+            tank.fuel = clamp(tank.fuel + collected * FUEL_PICKUP_REFILL, 0, TANK_START_FUEL)
 
     def _reset_match(self) -> None:
         self.terrain = Terrain()
@@ -206,6 +249,9 @@ class GameServer:
         self.explosion_position = None
         self.explosion_frames_left = 0
         self.game_over_text = None
+        self.fuel_pickups = []
+        for _ in range(FUEL_PICKUP_START):
+            self._spawn_fuel_pickup()
         print("Match restarted")
 
     def _snapshot(self) -> dict:
@@ -233,6 +279,7 @@ class GameServer:
                 else None
             ),
             "explosion": list(self.explosion_position) if self.explosion_position else None,
+            "fuel_pickups": [[x, self.terrain.height_at(x)] for x in self.fuel_pickups],
             "game_over_text": self.game_over_text,
         }
 

@@ -12,7 +12,7 @@ class Ammo:
 
 class LightShell(Ammo):
     def __init__(self):
-        super().__init__(name="Light", weight=1, damage=20, blast_radius=20)
+        super().__init__(name="Light", weight=1, damage=30, blast_radius=20)
 
 
 class MediumShell(Ammo):
@@ -22,7 +22,7 @@ class MediumShell(Ammo):
 
 class HeavyShell(Ammo):
     def __init__(self):
-        super().__init__(name="Heavy", weight=6, damage=70, blast_radius=50)
+        super().__init__(name="Heavy", weight=6, damage=70, blast_radius=40)
 
 
 AMMO_BY_NAME: dict[str, type[Ammo]] = {"Light": LightShell, "Medium": MediumShell, "Heavy": HeavyShell}
