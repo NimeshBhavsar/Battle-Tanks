@@ -1,11 +1,6 @@
 """Heads-up display: a per-player HP/fuel scoreboard, plus the active player's aim."""
 
-from operator import index
-
-from operator import index
-
 import pygame
-from pygame import surface
 
 from tankbattle.engine.turn_manager import TurnManager
 from tankbattle.models.player import Player
@@ -31,8 +26,15 @@ def _draw_bar(surface: pygame.Surface, x: int, y: int, fraction: float, fill_col
         pygame.draw.rect(surface, fill_color, (x, y, fill_width, BAR_HEIGHT), border_radius=3)
     pygame.draw.rect(surface, BLACK, rect, width=1, border_radius=3)
 
+
 def _draw_bar_label(
-    surface: pygame.Surface, font: pygame.font.Font, label: str, x: int, y: int, on_left: bool, color: tuple[int, int, int]
+    surface: pygame.Surface,
+    font: pygame.font.Font,
+    label: str,
+    x: int,
+    y: int,
+    on_left: bool,
+    color: tuple[int, int, int],
 ) -> None:
     """Tag a bar with its name, placed on the side facing the screen center."""
     text = font.render(label, True, color)
@@ -41,6 +43,7 @@ def _draw_bar_label(
     else:
         rect = text.get_rect(midright=(x - 6, y + BAR_HEIGHT // 2))
     surface.blit(text, rect)
+
 
 def draw_scoreboard(surface: pygame.Surface, font: pygame.font.Font, players: list[Player]) -> None:
     """Both players' HP and fuel bars, always visible regardless of whose turn it is."""
@@ -63,6 +66,7 @@ def draw_scoreboard(surface: pygame.Surface, font: pygame.font.Font, players: li
 
 
 def draw_turn_indicator(surface: pygame.Surface, font: pygame.font.Font, turn_manager: TurnManager) -> None:
+    """Draw the active player's name and aim readout at the top center."""
     tank = turn_manager.current_player.tank
     label = (
         f"{turn_manager.current_player.name}'s Turn"
@@ -74,6 +78,7 @@ def draw_turn_indicator(surface: pygame.Surface, font: pygame.font.Font, turn_ma
 
 
 def draw_message(surface: pygame.Surface, font: pygame.font.Font, message: str, y_offset: int = 0) -> None:
+    """Draw a message on a black box at the screen center, shifted down by y_offset."""
     text = font.render(message, True, HUD_TEXT_COLOR)
     rect = text.get_rect(center=(surface.get_width() // 2, surface.get_height() // 2 + y_offset))
     pygame.draw.rect(surface, BLACK, rect.inflate(40, 24), border_radius=8)

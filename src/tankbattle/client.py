@@ -32,6 +32,8 @@ from tankbattle.utils.constants import (
 
 
 class GameClient:
+    """Connects to the server, mirrors its state on screen and forwards local input."""
+
     def __init__(self, host: str, port: int):
         self.host = host
         self.port = port
@@ -56,6 +58,7 @@ class GameClient:
         self.name_buffer = ""
 
     def connect(self) -> None:
+        """Connect to the server, wait for the welcome message and run the render loop until the window closes."""
         self.sock = socket.create_connection((self.host, self.port))
         welcome = network.receive_message(self.sock)
         self.player_id = welcome["player_id"]
@@ -139,7 +142,10 @@ class GameClient:
                         self.menu_open = False
                     elif event.key == pygame.K_n:
                         self.editing_name = True
-                        current_name = next((p.name for p in self.players if p.player_id == self.player_id), f"Player {self.player_id}")
+                        current_name = next(
+                            (p.name for p in self.players if p.player_id == self.player_id),
+                            f"Player {self.player_id}",
+                        )
                         self.name_buffer = current_name
                     elif event.key == pygame.K_r:
                         restart = True
@@ -160,16 +166,23 @@ class GameClient:
                 move = rotate = power_dir = 0
             else:
                 keys = pygame.key.get_pressed()
-                move = -1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0
-                rotate = 1 if (keys[pygame.K_UP] or keys[pygame.K_w]) else -1 if (keys[pygame.K_DOWN] or keys[pygame.K_s]) else 0
+                left, right = keys[pygame.K_LEFT] or keys[pygame.K_a], keys[pygame.K_RIGHT] or keys[pygame.K_d]
+                up, down = keys[pygame.K_UP] or keys[pygame.K_w], keys[pygame.K_DOWN] or keys[pygame.K_s]
+                move = -1 if left else 1 if right else 0
+                rotate = 1 if up else -1 if down else 0
                 power_dir = 1 if keys[pygame.K_e] else -1 if keys[pygame.K_q] else 0
 
             try:
                 network.send_message(
                     self.sock,
                     {
-                        "move": move, "rotate": rotate, "power": power_dir,
-                        "fire": fire, "ammo": ammo, "restart": restart, "name": name_to_send,
+                        "move": move,
+                        "rotate": rotate,
+                        "power": power_dir,
+                        "fire": fire,
+                        "ammo": ammo,
+                        "restart": restart,
+                        "name": name_to_send,
                     },
                 )
             except OSError:
@@ -218,17 +231,27 @@ class GameClient:
                     trajectory = full_trajectory[: max(1, int(len(full_trajectory) * TRAJECTORY_VISIBLE_FRACTION))]
 
                 game_screen.render(
-                    screen, self.terrain, self.players, self.turn_manager, font,
-                    projectile=projectile, explosion=explosion, explosion_progress=explosion_progress,
-                    game_over_text=game_over_text, big_font=big_font,
+                    screen,
+                    self.terrain,
+                    self.players,
+                    self.turn_manager,
+                    font,
+                    projectile=projectile,
+                    explosion=explosion,
+                    explosion_progress=explosion_progress,
+                    game_over_text=game_over_text,
+                    big_font=big_font,
                     trajectory=trajectory,
                     fuel_pickups=[tuple(p) for p in state.get("fuel_pickups", [])],
                 )
 
             if self.menu_open or self.editing_name:
                 menu.draw(
-                    screen, font, big_font,
-                    editing_name=self.editing_name, name_buffer=self.name_buffer,
+                    screen,
+                    font,
+                    big_font,
+                    editing_name=self.editing_name,
+                    name_buffer=self.name_buffer,
                     show_restart=game_over_text is not None,
                 )
 

@@ -5,6 +5,7 @@ the current player's latest input, advances the simulation, and broadcasts a ful
 snapshot to both clients. The server never renders anything itself.
 """
 
+import random
 import socket
 import threading
 import time
@@ -16,8 +17,6 @@ from tankbattle.models.ammunition import AMMO_BY_NAME
 from tankbattle.models.player import Player
 from tankbattle.models.tank import Tank
 from tankbattle.models.terrain import Terrain
-import random
-
 from tankbattle.settings import TANK_START_FUEL
 from tankbattle.utils.constants import (
     EXPLOSION_FRAMES,
@@ -40,6 +39,7 @@ _EMPTY_INPUT = {"move": 0, "rotate": 0, "power": 0, "fire": False, "ammo": None,
 
 
 def build_players(terrain: Terrain) -> list[Player]:
+    """Create both players, with tanks placed on the terrain near opposite edges."""
     p1_x, p2_x = SCREEN_WIDTH * 0.15, SCREEN_WIDTH * 0.85
     tank1 = Tank(player_id=1, x=p1_x, y=terrain.height_at(p1_x), color=PLAYER1_COLOR)
     tank2 = Tank(player_id=2, x=p2_x, y=terrain.height_at(p2_x), color=PLAYER2_COLOR)
@@ -48,6 +48,8 @@ def build_players(terrain: Terrain) -> list[Player]:
 
 
 class GameServer:
+    """Authoritative server: simulates the match and broadcasts its state to both clients."""
+
     def __init__(self, host: str, port: int):
         self.host = host
         self.port = port
@@ -71,6 +73,7 @@ class GameServer:
         self.pending_inputs: dict[int, dict] = {}
 
     def start(self) -> None:
+        """Wait for two players to connect, then run the game loop forever."""
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_sock.bind((self.host, self.port))

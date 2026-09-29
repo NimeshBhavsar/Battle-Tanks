@@ -27,6 +27,7 @@ def _make_tone(frequency: float, duration: float, volume: float = 0.5) -> pygame
 
 
 def load_sounds() -> dict[str, pygame.mixer.Sound]:
+    """Synthesize the sound effects, or return an empty dict if audio can't be initialized."""
     try:
         pygame.mixer.init(frequency=_SAMPLE_RATE, size=-16, channels=2)
         return {
@@ -38,6 +39,7 @@ def load_sounds() -> dict[str, pygame.mixer.Sound]:
 
 
 def play(sounds: dict[str, pygame.mixer.Sound], name: str) -> None:
+    """Play the named sound if it was loaded; do nothing otherwise."""
     sound = sounds.get(name)
     if sound is None:
         return

@@ -16,7 +16,9 @@ def launch_velocity(power: float, angle_degrees: float) -> tuple[float, float]:
     return vx, vy
 
 
-def step(position: tuple[float, float], velocity: tuple[float, float], weight_factor: float) -> tuple[tuple[float, float], tuple[float, float]]:
+def step(
+    position: tuple[float, float], velocity: tuple[float, float], weight_factor: float
+) -> tuple[tuple[float, float], tuple[float, float]]:
     """Advance one frame: move by velocity, then apply gravity scaled by shell weight."""
     x, y = position
     vx, vy = velocity

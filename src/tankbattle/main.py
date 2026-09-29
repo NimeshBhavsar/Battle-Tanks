@@ -12,6 +12,7 @@ from tankbattle.settings import DEFAULT_HOST, DEFAULT_PORT
 
 
 def main() -> None:
+    """Parse the command line and start either the server or a client."""
     parser = argparse.ArgumentParser(prog="tankbattle", description="Tank Battle — a networked artillery game.")
     subparsers = parser.add_subparsers(dest="mode", required=True)
 

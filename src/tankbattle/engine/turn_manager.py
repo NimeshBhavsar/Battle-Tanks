@@ -4,6 +4,8 @@ from tankbattle.models.player import Player
 
 
 class TurnManager:
+    """Cycles through the players, one turn at a time."""
+
     def __init__(self, players: list[Player]):
         if not players:
             raise ValueError("TurnManager needs at least one player")
@@ -12,9 +14,11 @@ class TurnManager:
 
     @property
     def current_player(self) -> Player:
+        """The player whose turn it is."""
         return self.players[self._current_index]
 
     def end_turn(self) -> None:
+        """Advance to the next player."""
         self._current_index = (self._current_index + 1) % len(self.players)
 
     def set_current(self, player_id: int) -> None:

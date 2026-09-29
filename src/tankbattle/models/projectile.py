@@ -12,7 +12,16 @@ from tankbattle.utils.constants import (
 
 
 class Projectile:
-    def __init__(self, position: tuple[float, float], velocity: tuple[float, float], weight: float, damage: float, blast_radius: float):
+    """A shell in flight."""
+
+    def __init__(
+        self,
+        position: tuple[float, float],
+        velocity: tuple[float, float],
+        weight: float,
+        damage: float,
+        blast_radius: float,
+    ):
         self.position = position
         self.velocity = velocity
         self.weight = weight
@@ -36,5 +45,6 @@ class Projectile:
         return self.position
 
     def draw(self, surface: pygame.Surface) -> None:
+        """Draw the shell as a filled circle sized by its weight."""
         pos = (int(self.position[0]), int(self.position[1]))
         pygame.draw.circle(surface, PROJECTILE_COLOR, pos, self.radius)

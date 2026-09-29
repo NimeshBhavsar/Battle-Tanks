@@ -36,6 +36,8 @@ if TYPE_CHECKING:
 
 
 class Tank:
+    """A player's tank: position, aim, health, fuel and current ammo."""
+
     def __init__(self, player_id: int, x: float, y: float, color: tuple[int, int, int]):
         self.player_id = player_id
         self.color = color
@@ -101,14 +103,17 @@ class Tank:
 
     @property
     def alive(self) -> bool:
+        """Whether the tank still has health left."""
         return self.health > 0
 
     def get_rect(self) -> pygame.Rect:
+        """Body rectangle, with its bottom-middle on the tank's position."""
         rect = pygame.Rect(0, 0, TANK_WIDTH, TANK_HEIGHT)
         rect.midbottom = self.position
         return rect
 
     def barrel_tip(self) -> tuple[float, float]:
+        """Position of the end of the barrel, where shells start."""
         body_rect = self.get_rect()
         angle_rad = math.radians(self.angle)
         return (
@@ -117,6 +122,7 @@ class Tank:
         )
 
     def draw(self, surface: pygame.Surface) -> None:
+        """Draw the tank body and barrel."""
         body_rect = self.get_rect()
         pygame.draw.rect(surface, self.color, body_rect, border_radius=3)
         pygame.draw.rect(surface, BLACK, body_rect, width=1, border_radius=3)

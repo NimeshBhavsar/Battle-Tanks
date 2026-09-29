@@ -37,6 +37,7 @@ def render(
     trajectory: list[tuple[float, float]] | None = None,
     fuel_pickups: list[tuple[float, float]] | None = None,
 ) -> None:
+    """Draw one complete frame onto the surface."""
     surface.fill(SKY_COLOR)
     terrain.draw(surface)
     for pickup in fuel_pickups or []:
@@ -60,7 +61,7 @@ def render(
 
 
 def _draw_fuel_pickup(surface: pygame.Surface, position: tuple[float, float]) -> None:
-    """A little jerrycan standing on the ground at `position`."""
+    """Draw a little jerrycan standing on the ground at `position`."""
     x, y = int(position[0]), int(position[1])
     body = pygame.Rect(0, 0, FUEL_PICKUP_WIDTH, FUEL_PICKUP_HEIGHT)
     body.midbottom = (x, y + 2)  # sink slightly so it sits on the terrain

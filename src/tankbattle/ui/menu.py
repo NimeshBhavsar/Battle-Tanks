@@ -14,6 +14,7 @@ def draw(
     name_buffer: str,
     show_restart: bool,
 ) -> None:
+    """Draw the pause menu, or the name-edit box while a name is being typed."""
     overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 170))
     surface.blit(overlay, (0, 0))

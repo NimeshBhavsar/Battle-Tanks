@@ -9,6 +9,8 @@ from tankbattle.utils.constants import GROUND_COLOR, GROUND_OUTLINE_COLOR, SCREE
 
 
 class Terrain:
+    """Destructible terrain stored as one ground height per pixel column."""
+
     def __init__(self, width: int = SCREEN_WIDTH, height: int = SCREEN_HEIGHT, seed: int | None = None):
         self.width = width
         self.height = height
@@ -39,6 +41,7 @@ class Terrain:
         return self.height_map[x]
 
     def draw(self, surface: pygame.Surface) -> None:
+        """Draw the ground as a filled polygon."""
         points = [(0, self.height)]
         points += [(x, self.height_map[x]) for x in range(self.width)]
         points.append((self.width, self.height))

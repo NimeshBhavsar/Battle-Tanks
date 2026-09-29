@@ -15,7 +15,9 @@ def distance(point_a: tuple[float, float], point_b: tuple[float, float]) -> floa
     return math.hypot(bx - ax, by - ay)
 
 
-def distance_to_segment(point: tuple[float, float], seg_start: tuple[float, float], seg_end: tuple[float, float]) -> float:
+def distance_to_segment(
+    point: tuple[float, float], seg_start: tuple[float, float], seg_end: tuple[float, float]
+) -> float:
     """Shortest distance from a point to a line segment."""
     px, py = point
     ax, ay = seg_start

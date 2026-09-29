@@ -24,7 +24,8 @@ and the phase-by-phase build plan this project followed.
   per-column height map
 - A real client/server network architecture (length-prefixed JSON over TCP), not just a
   shared-process hot-seat mode
-- HP/fuel bars, animated explosions, synthesized sound effects (no external audio
+- Fuel cans that spawn at random spots on the map - drive over one to refill your tank
+- Labelled HP/fuel bars, animated explosions, synthesized sound effects (no external audio
   assets needed), and a menu for renaming yourself and restarting a finished match
 
 ## Requirements
@@ -37,7 +38,7 @@ and the phase-by-phase build plan this project followed.
 ## Installation
 
 ```sh
-git clone <this-repository-url>
+git clone https://github.com/NimeshBhavsar/Battle-Tanks.git
 cd "Intro to Python"
 uv pip install -e .
 ```
@@ -66,6 +67,19 @@ By default the server listens on `127.0.0.1:5555`. Both subcommands accept `--ho
 ```sh
 uv run -m tankbattle server --host 0.0.0.0 --port 5555
 uv run -m tankbattle client --host <server-ip> --port 5555
+```
+
+## Using the package from Python
+
+The main building blocks are exported from the top-level package:
+
+```python
+from tankbattle import Tank, Terrain, HeavyShell, GameServer, GameClient
+
+terrain = Terrain(seed=1)
+tank = Tank(player_id=1, x=200, y=terrain.height_at(200), color=(200, 60, 60))
+tank.current_ammo = HeavyShell()
+shell = tank.fire()
 ```
 
 ## Controls
@@ -122,7 +136,7 @@ Where each topic actually shows up in this codebase:
   [client.py](src/tankbattle/client.py)'s `tanks_by_id`,
   [ammunition.py](src/tankbattle/models/ammunition.py)'s `AMMO_BY_NAME`; `tuple` for
   positions/velocities throughout; a list comprehension at
-  [server.py:145](src/tankbattle/server.py#L145)
+  `_advance_projectile` in [server.py](src/tankbattle/server.py)
   (`opponents = [p.tank for p in self.players if ...]`).
 
 - **Functions** - small, pure, single-purpose functions are the backbone of `engine/`:
@@ -134,16 +148,16 @@ Where each topic actually shows up in this codebase:
 - **Classes** - one per file under `models/`, plus `TurnManager`, `GameServer`,
   `GameClient`. [tank.py](src/tankbattle/models/tank.py) is the clearest example of
   state + behavior encapsulated together; `@property` is used for computed attributes
-  at [tank.py:82](src/tankbattle/models/tank.py#L82) (`alive`) and
-  [projectile.py:17](src/tankbattle/models/projectile.py#L17) (`radius`, derived from
+  in [tank.py](src/tankbattle/models/tank.py) (`alive`) and
+  [projectile.py](src/tankbattle/models/projectile.py) (`radius`, derived from
   ammo weight).
 
 - **Inheritance & polymorphism** -
   [ammunition.py](src/tankbattle/models/ammunition.py): `Ammo` is the base class,
   `LightShell`/`MediumShell`/`HeavyShell` inherit from it and only override the
   constructor's values. The polymorphism is in how they're *used*: `Tank.fire()`
-  ([tank.py:68-79](src/tankbattle/models/tank.py#L68-L79)) and `Projectile`
-  ([projectile.py:17-19](src/tankbattle/models/projectile.py#L17-L19)) never check
+  ([tank.py](src/tankbattle/models/tank.py)) and `Projectile`
+  ([projectile.py](src/tankbattle/models/projectile.py)) never check
   which subclass they hold - they just read `.weight`/`.damage`/`.blast_radius`/`.name`
   on whatever `Ammo` instance they were given.
 
@@ -159,6 +173,14 @@ Where each topic actually shows up in this codebase:
   organic place for them.
 
 ## Development notes
+
+Code style is checked with [ruff](https://astral.sh/ruff) (configured in
+`pyproject.toml`):
+
+```sh
+uvx ruff check src
+uvx ruff format --check src
+```
 
 The server and client can each be exercised without a display: `server.py` never calls
 into pygame's rendering/audio subsystems, and both were developed against headless
