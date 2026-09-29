@@ -5,19 +5,21 @@ the current player's latest input, advances the simulation, and broadcasts a ful
 snapshot to both clients. The server never renders anything itself.
 """
 
+import base64
 import random
 import socket
 import threading
 import time
 
-from tankbattle import network
+from tankbattle import network, report
 from tankbattle.engine import collision, damage, terrain_engine
 from tankbattle.engine.turn_manager import TurnManager
 from tankbattle.models.ammunition import AMMO_BY_NAME
 from tankbattle.models.player import Player
 from tankbattle.models.tank import Tank
 from tankbattle.models.terrain import Terrain
-from tankbattle.settings import TANK_START_FUEL
+from tankbattle.settings import STATS_DIR, TANK_START_FUEL
+from tankbattle.stats import MatchRecorder, save_match
 from tankbattle.utils.constants import (
     EXPLOSION_FRAMES,
     FPS,
@@ -71,6 +73,10 @@ class GameServer:
         # Recent hits, each with a unique increasing id so clients can tell which ones they've already shown.
         self.damage_events: list[dict] = []
         self._next_damage_id = 1
+
+        self.recorder = MatchRecorder()
+        self._match_number = 1  # bumped on restart so a slow chart from the old match is discarded
+        self._pending_report: bytes | None = None  # finished chart PNG, waiting to be sent to the clients
 
         self.lock = threading.Lock()
         self.client_sockets: dict[int, socket.socket] = {}
@@ -191,6 +197,9 @@ class GameServer:
 
         if input_state.get("fire") and not self.acted_this_turn:
             self.active_projectile = current_tank.fire()
+            self.recorder.start_shot(
+                current_tank.player_id, current_tank.current_ammo.name, current_tank.angle, current_tank.power
+            )
             self.acted_this_turn = True
 
     def _advance_projectile(self, current_tank: Tank) -> None:
@@ -207,9 +216,11 @@ class GameServer:
         self.explosion_frames_left = EXPLOSION_FRAMES
         self.active_projectile = None
 
+        damage_by_player: dict[int, float] = {}
         for player in self.players:
             hit_distance = damage.distance_to_tank(self.explosion_position, player.tank)
             amount = damage.calculate_damage(hit_distance, blast_radius, max_damage)
+            damage_by_player[player.player_id] = amount
             if amount > 0:
                 player.tank.take_damage(amount)
                 self.damage_events.append(
@@ -217,6 +228,7 @@ class GameServer:
                 )
                 self._next_damage_id += 1
         del self.damage_events[:-10]
+        self.recorder.finish_shot(damage_by_player)
 
         terrain_engine.carve_crater(self.terrain, *self.explosion_position, blast_radius)
         for player in self.players:
@@ -226,9 +238,38 @@ class GameServer:
         survivors = [p for p in self.players if p.tank.alive]
         if len(survivors) <= 1:
             self.game_over_text = f"{survivors[0].name} Wins!" if survivors else "Draw!"
+            self._finish_match(survivors[0].player_id if survivors else None)
         else:
             self._end_turn()
             self.acted_this_turn = False
+
+    def _finish_match(self, winner_id: int | None) -> None:
+        """Save the shot log as JSON right away, and draw the chart in the background (it takes a moment)."""
+        match = self.recorder.finish(self.players, winner_id)
+        json_path = None
+        try:
+            json_path = save_match(match, STATS_DIR)
+            print(f"Match stats saved to {json_path}")
+        except OSError as error:
+            print(f"Could not save match stats: {error}")
+        threading.Thread(target=self._build_report, args=(match, json_path, self._match_number), daemon=True).start()
+
+    def _build_report(self, match: dict, json_path, match_number: int) -> None:
+        """Render the chart, save it next to the JSON, and queue it for the main loop to send."""
+        try:
+            png = report.build_report(match)
+        except Exception as error:  # a chart problem must never take the server down
+            print(f"Could not build match report: {error}")
+            return
+        if json_path is not None:
+            try:
+                json_path.with_suffix(".png").write_bytes(png)
+                print(f"Match chart saved to {json_path.with_suffix('.png')}")
+            except OSError as error:
+                print(f"Could not save match chart: {error}")
+        with self.lock:
+            if match_number == self._match_number:
+                self._pending_report = png
 
     def _end_turn(self) -> None:
         self.turn_manager.end_turn()
@@ -265,6 +306,10 @@ class GameServer:
         self.fuel_pickups = []
         for _ in range(FUEL_PICKUP_START):
             self._spawn_fuel_pickup()
+        with self.lock:
+            self._match_number += 1
+            self._pending_report = None
+        self.recorder = MatchRecorder()
         print("Match restarted")
 
     def _snapshot(self) -> dict:
@@ -302,9 +347,14 @@ class GameServer:
         snapshot = self._snapshot()
         with self.lock:
             sockets = list(self.client_sockets.items())
+            png, self._pending_report = self._pending_report, None
+        # The chart is sent from this thread only, so its bytes can't interleave with a state message.
+        report_message = {"type": "report", "png": base64.b64encode(png).decode("ascii")} if png else None
         for player_id, sock in sockets:
             try:
                 network.send_message(sock, snapshot)
+                if report_message:
+                    network.send_message(sock, report_message)
             except OSError:
                 print(f"Player {player_id} disconnected")
                 with self.lock:

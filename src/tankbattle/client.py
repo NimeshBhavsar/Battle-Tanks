@@ -5,6 +5,7 @@ broadcast (terrain, tanks, projectile, turn) and sends its own held keys/actions
 every frame. The server decides what actually happens.
 """
 
+import base64
 import socket
 import threading
 
@@ -17,7 +18,7 @@ from tankbattle.models.player import Player
 from tankbattle.models.projectile import Projectile
 from tankbattle.models.tank import Tank
 from tankbattle.models.terrain import Terrain
-from tankbattle.ui import game_screen, hud, menu
+from tankbattle.ui import game_screen, hud, menu, report_view
 from tankbattle.ui import sound as sfx
 from tankbattle.ui.effects import Effects
 from tankbattle.utils.constants import (
@@ -60,6 +61,11 @@ class GameClient:
         self._damage_popups: list[dict] = []
         self.effects = Effects()
 
+        self._incoming_report: bytes | None = None  # chart PNG handed over by the receive thread
+        self._report_chart: pygame.Surface | None = None
+        self.show_report = True  # Tab toggles the end-screen stats so the final battlefield can be looked at
+        self._was_game_over = False
+
         self.menu_open = False
         self.editing_name = False
         self.name_buffer = ""
@@ -80,6 +86,9 @@ class GameClient:
             if message.get("type") == "state":
                 with self.lock:
                     self.latest_state = message
+            elif message.get("type") == "report":
+                with self.lock:
+                    self._incoming_report = base64.b64decode(message["png"])
 
     def _apply_state(self, state: dict) -> None:
         """Mirror a server state broadcast onto local render-only objects."""
@@ -175,6 +184,8 @@ class GameClient:
                 else:
                     if event.key == pygame.K_ESCAPE:
                         self.menu_open = True
+                    elif event.key == pygame.K_TAB:
+                        self.show_report = not self.show_report
                     elif event.key == pygame.K_SPACE:
                         fire = True
                     elif event.key == pygame.K_1:
@@ -247,6 +258,16 @@ class GameClient:
                 explosion_progress = self._explosion_elapsed / EXPLOSION_FRAMES
 
                 game_over_text = state.get("game_over_text")
+                if game_over_text is None:
+                    self._report_chart = None  # a new match is under way; the old chart no longer applies
+                elif not self._was_game_over:
+                    self.show_report = True
+                self._was_game_over = game_over_text is not None
+                if game_over_text is not None:
+                    with self.lock:
+                        png, self._incoming_report = self._incoming_report, None
+                    if png is not None:
+                        self._report_chart = report_view.load_chart(png)
 
                 self._update_damage_popups(state.get("damage_events", []))
                 self.effects.update()
@@ -278,6 +299,8 @@ class GameClient:
                 )
                 screen.fill(BLACK)  # only visible along the edges while the frame is shaken
                 screen.blit(frame, self.effects.shake_offset())
+                if game_over_text is not None and self.show_report:
+                    report_view.draw(screen, self._report_chart, font, big_font, game_over_text)
 
             if self.menu_open or self.editing_name:
                 menu.draw(

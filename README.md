@@ -25,6 +25,8 @@ and the phase-by-phase build plan this project followed.
 - A real client/server network architecture (length-prefixed JSON over TCP), not just a
   shared-process hot-seat mode
 - Fuel cans that spawn at random spots on the map - drive over one to refill your tank
+- Match statistics: every shot is logged to JSON, and a matplotlib chart of the match is
+  saved as a PNG and shown on the end screen
 - Labelled HP/fuel bars, animated explosions, synthesized sound effects (no external audio
   assets needed), and a menu for renaming yourself and restarting a finished match
 
@@ -82,6 +84,33 @@ tank.current_ammo = HeavyShell()
 shell = tank.fire()
 ```
 
+## Match statistics
+
+The server records every shot (who fired, ammo, angle, power, damage dealt and taken).
+When a match ends it writes two files into a `match_stats/` folder next to where the
+server was started, and shows the chart on both players' end screens:
+
+- `match_<date>_<time>.json` - the full shot log
+- `match_<date>_<time>.png` - a three-panel matplotlib chart: cumulative damage over
+  time, accuracy per player, and every shot plotted as power vs. angle (filled = hit)
+
+An example from a bot-vs-bot match: [docs/sample_match.png](docs/sample_match.png) and
+[docs/sample_match.json](docs/sample_match.json).
+
+![Example match report](docs/sample_match.png)
+
+The chart code is in [report.py](src/tankbattle/report.py) and can be used on any saved
+match:
+
+```python
+from tankbattle.stats import load_match, summarize
+from tankbattle.report import save_report
+
+match = load_match("docs/sample_match.json")
+print(summarize(match))                     # shots / hits / accuracy / damage per player
+save_report(match, "my_chart.png")
+```
+
 ## Controls
 
 Apply on your turn:
@@ -94,6 +123,7 @@ Apply on your turn:
 | `1` / `2` / `3` | Select Light / Medium / Heavy shell |
 | `Space` | Fire (spends the turn) |
 | `Esc` | Open/close the menu |
+| `Tab` | (End screen) hide/show the match statistics |
 
 In the menu: `N` edits your name, `R` restarts once a match has ended, `Esc` closes it.
 
@@ -106,6 +136,8 @@ src/tankbattle/
     server.py            authoritative GameServer: owns all game state, runs headless
     client.py             GameClient: renders server state, sends local input
     network.py            length-prefixed JSON message framing over TCP
+    stats.py               MatchRecorder: logs every shot, saves/loads match JSON
+    report.py              matplotlib chart of a finished match (PNG)
     settings.py            session config (starting stats, default host/port)
 
     models/                game objects
@@ -115,7 +147,7 @@ src/tankbattle/
         physics.py, collision.py, damage.py, turn_manager.py, terrain_engine.py
 
     ui/                     pygame rendering only
-        game_screen.py, hud.py, menu.py, sound.py
+        game_screen.py, hud.py, menu.py, sound.py, effects.py, report_view.py
 
     utils/
         constants.py, helpers.py
@@ -168,9 +200,10 @@ Where each topic actually shows up in this codebase:
 - **Version control** - the commit history shows incremental, meaningful progress
   (`v5.0` terrain deformation through `v8` ammo-scaled ball size / menu / restart).
 
-- **Not used**: numpy, pandas, and matplotlib are not used - a real-time game
-  doesn't naturally need array math, tabular data, or static plots, so there was no
-  organic place for them.
+- **Data analysis & visualization** - [stats.py](src/tankbattle/stats.py) records the
+  shot log and computes per-player summaries; [report.py](src/tankbattle/report.py) plots
+  it with matplotlib. numpy and pandas are not used - the datasets are tiny (dozens of
+  shots), so plain lists/dicts were enough.
 
 ## Development notes
 
