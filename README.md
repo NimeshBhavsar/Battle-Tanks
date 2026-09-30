@@ -105,6 +105,24 @@ uv run -m tankbattle server --host 0.0.0.0 --port 5555
 uv run -m tankbattle client --host <server-ip> --port 5555
 ```
 
+## Running with Docker
+
+The server and both players run in containers with one command:
+
+```sh
+docker compose up --build
+```
+
+Then open the two players' windows in your browser (each client runs on a virtual
+display served through noVNC):
+
+- Player 1: <http://localhost:6081/vnc.html?autoconnect=1>
+- Player 2: <http://localhost:6082/vnc.html?autoconnect=1>
+
+Click inside the page to give it keyboard focus. Match stats are saved to
+`./match_stats`. Port 5555 is also published, so native clients
+(`uv run -m tankbattle client`) can still connect to the containerised server.
+
 ## Using the package from Python
 
 The main building blocks are exported from the top-level package:

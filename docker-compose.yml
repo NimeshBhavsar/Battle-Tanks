@@ -1,0 +1,24 @@
+services:
+  server:
+    build: .
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./match_stats:/app/match_stats
+
+  # Each client runs in a virtual display, viewable in the browser.
+  player1:
+    build: .
+    command: sh /client.sh
+    ports:
+      - "6081:6080"
+    depends_on: [server]
+    restart: on-failure
+
+  player2:
+    build: .
+    command: sh /client.sh
+    ports:
+      - "6082:6080"
+    depends_on: [server]
+    restart: on-failure
